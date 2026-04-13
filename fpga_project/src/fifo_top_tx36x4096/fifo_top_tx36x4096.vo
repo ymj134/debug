@@ -2,7 +2,7 @@
 //All rights reserved.
 //File Title: Post-PnR Verilog Simulation Model file
 //Tool Version: V1.9.12 (64-bit)
-//Created Time: Mon Apr 13 11:32:52 2026
+//Created Time: Mon Apr 13 17:35:54 2026
 
 `timescale 100 ps/100 ps
 module fifo_top_tx36x4096(
@@ -12,6 +12,7 @@ module fifo_top_tx36x4096(
 	RdClk,
 	WrEn,
 	RdEn,
+	Rnum,
 	Almost_Empty,
 	Almost_Full,
 	Q,
@@ -24,6 +25,7 @@ input WrClk;
 input RdClk;
 input WrEn;
 input RdEn;
+output [12:0] Rnum;
 output Almost_Empty;
 output Almost_Full;
 output [35:0] Q;
@@ -39,6 +41,7 @@ wire [35:0] Q;
 wire RdClk;
 wire RdEn;
 wire Reset;
+wire [12:0] Rnum;
 wire VCC;
 wire WrClk;
 wire WrEn;
@@ -1954,6 +1957,110 @@ DFFCE \fifo_inst/Almost_Full_s0  (
 	.Q(Almost_Full)
 );
 defparam \fifo_inst/Almost_Full_s0 .INIT=1'b0;
+DFFCE \fifo_inst/Rnum_12_s0  (
+	.D(\fifo_inst/rcnt_sub [12]),
+	.CLK(RdClk),
+	.CE(VCC),
+	.CLEAR(\fifo_inst/reset_r [1]),
+	.Q(Rnum[12])
+);
+defparam \fifo_inst/Rnum_12_s0 .INIT=1'b0;
+DFFCE \fifo_inst/Rnum_11_s0  (
+	.D(\fifo_inst/rcnt_sub [11]),
+	.CLK(RdClk),
+	.CE(VCC),
+	.CLEAR(\fifo_inst/reset_r [1]),
+	.Q(Rnum[11])
+);
+defparam \fifo_inst/Rnum_11_s0 .INIT=1'b0;
+DFFCE \fifo_inst/Rnum_10_s0  (
+	.D(\fifo_inst/rcnt_sub [10]),
+	.CLK(RdClk),
+	.CE(VCC),
+	.CLEAR(\fifo_inst/reset_r [1]),
+	.Q(Rnum[10])
+);
+defparam \fifo_inst/Rnum_10_s0 .INIT=1'b0;
+DFFCE \fifo_inst/Rnum_9_s0  (
+	.D(\fifo_inst/rcnt_sub [9]),
+	.CLK(RdClk),
+	.CE(VCC),
+	.CLEAR(\fifo_inst/reset_r [1]),
+	.Q(Rnum[9])
+);
+defparam \fifo_inst/Rnum_9_s0 .INIT=1'b0;
+DFFCE \fifo_inst/Rnum_8_s0  (
+	.D(\fifo_inst/rcnt_sub [8]),
+	.CLK(RdClk),
+	.CE(VCC),
+	.CLEAR(\fifo_inst/reset_r [1]),
+	.Q(Rnum[8])
+);
+defparam \fifo_inst/Rnum_8_s0 .INIT=1'b0;
+DFFCE \fifo_inst/Rnum_7_s0  (
+	.D(\fifo_inst/rcnt_sub [7]),
+	.CLK(RdClk),
+	.CE(VCC),
+	.CLEAR(\fifo_inst/reset_r [1]),
+	.Q(Rnum[7])
+);
+defparam \fifo_inst/Rnum_7_s0 .INIT=1'b0;
+DFFCE \fifo_inst/Rnum_6_s0  (
+	.D(\fifo_inst/rcnt_sub [6]),
+	.CLK(RdClk),
+	.CE(VCC),
+	.CLEAR(\fifo_inst/reset_r [1]),
+	.Q(Rnum[6])
+);
+defparam \fifo_inst/Rnum_6_s0 .INIT=1'b0;
+DFFCE \fifo_inst/Rnum_5_s0  (
+	.D(\fifo_inst/rcnt_sub [5]),
+	.CLK(RdClk),
+	.CE(VCC),
+	.CLEAR(\fifo_inst/reset_r [1]),
+	.Q(Rnum[5])
+);
+defparam \fifo_inst/Rnum_5_s0 .INIT=1'b0;
+DFFCE \fifo_inst/Rnum_4_s0  (
+	.D(\fifo_inst/rcnt_sub [4]),
+	.CLK(RdClk),
+	.CE(VCC),
+	.CLEAR(\fifo_inst/reset_r [1]),
+	.Q(Rnum[4])
+);
+defparam \fifo_inst/Rnum_4_s0 .INIT=1'b0;
+DFFCE \fifo_inst/Rnum_3_s0  (
+	.D(\fifo_inst/rcnt_sub [3]),
+	.CLK(RdClk),
+	.CE(VCC),
+	.CLEAR(\fifo_inst/reset_r [1]),
+	.Q(Rnum[3])
+);
+defparam \fifo_inst/Rnum_3_s0 .INIT=1'b0;
+DFFCE \fifo_inst/Rnum_2_s0  (
+	.D(\fifo_inst/rcnt_sub [2]),
+	.CLK(RdClk),
+	.CE(VCC),
+	.CLEAR(\fifo_inst/reset_r [1]),
+	.Q(Rnum[2])
+);
+defparam \fifo_inst/Rnum_2_s0 .INIT=1'b0;
+DFFCE \fifo_inst/Rnum_1_s0  (
+	.D(\fifo_inst/rcnt_sub [1]),
+	.CLK(RdClk),
+	.CE(VCC),
+	.CLEAR(\fifo_inst/reset_r [1]),
+	.Q(Rnum[1])
+);
+defparam \fifo_inst/Rnum_1_s0 .INIT=1'b0;
+DFFCE \fifo_inst/Rnum_0_s0  (
+	.D(\fifo_inst/rcnt_sub [0]),
+	.CLK(RdClk),
+	.CE(VCC),
+	.CLEAR(\fifo_inst/reset_r [1]),
+	.Q(Rnum[0])
+);
+defparam \fifo_inst/Rnum_0_s0 .INIT=1'b0;
 DFFPE \fifo_inst/reset_r_1_s0  (
 	.D(\fifo_inst/reset_r [0]),
 	.CLK(\fifo_inst/n4_6 ),

@@ -6,5 +6,6 @@
 `define Empty_S_Single_Th
 `define Al_Full_Flag
 `define Full_S_Single_Th
+`define Count_R
 `define En_Reset
 `define Reset_Synchronization

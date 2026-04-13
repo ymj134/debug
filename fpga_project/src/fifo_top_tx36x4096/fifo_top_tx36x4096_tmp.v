@@ -5,7 +5,7 @@
 //Part Number: GW5AST-LV138FPG676AC2/I1
 //Device: GW5AST-138
 //Device Version: B
-//Created Time: Mon Apr 13 11:32:52 2026
+//Created Time: Mon Apr 13 17:35:54 2026
 
 //Change the instance name and port connections to the signal names
 //--------Copy here to design--------
@@ -17,6 +17,7 @@
 		.RdClk(RdClk), //input RdClk
 		.WrEn(WrEn), //input WrEn
 		.RdEn(RdEn), //input RdEn
+		.Rnum(Rnum), //output [12:0] Rnum
 		.Almost_Empty(Almost_Empty), //output Almost_Empty
 		.Almost_Full(Almost_Full), //output Almost_Full
 		.Q(Q), //output [35:0] Q
