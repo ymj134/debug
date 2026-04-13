@@ -1,0 +1,1 @@
+GLOBAL syn_srlstyle=registers;

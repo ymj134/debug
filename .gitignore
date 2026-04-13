@@ -1,0 +1,5 @@
+# Gowin build outputs
+fpga_project/impl/
+
+# user state
+*.gprj.user

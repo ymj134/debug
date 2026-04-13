@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Module name="fifo_top_rx565" Register="86" Alu="29" Lut="96" Bsram="1" T_Register="86(86)" T_Alu="29(29)" T_Lut="96(96)" T_Bsram="1(1)"/>
