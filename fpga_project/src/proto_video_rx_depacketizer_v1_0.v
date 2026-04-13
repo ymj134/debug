@@ -2,9 +2,9 @@
 
 /*********************************************************************************
 * Module       : proto_video_rx_depacketizer_v1_0
-* Version      : v1.0
+* Version      : v1.1
 * Description  :
-*   VIDEO-only 协议解包器。
+*   VIDEO-only 协议解包器（修正版）
 *
 *   输入：
 *     - 直接来自 RoraLink Framing 的 user_rx_* 接口
@@ -18,9 +18,12 @@
 *         [35:34]= reserved
 *
 * Notes :
-*   1) 当前版本为 streaming parser：在 VIDEO_PAYLOAD 包内部，payload word 会边收边转发。
+*   1) 当前版本仍为 streaming parser：在 VIDEO_PAYLOAD 包内部，payload word 会边收边转发。
 *   2) CRC32 在包尾校验完成后仅用于统计/标记，不会回滚已经输出的 payload。
-*   3) 这适合当前 loopback / demo bring-up；若后续要“CRC错包不落地”，需升级为带 packet buffer 的 v2 版本。
+*   3) 修复了：
+*      - dbg_hdr_crc_ok / dbg_crc32_ok 残留旧值
+*      - err_sticky 永久粘住不恢复
+*      - Header CRC 比较使用旧寄存器值的歧义
 *********************************************************************************/
 
 module proto_video_rx_depacketizer_v1_0
@@ -67,26 +70,19 @@ module proto_video_rx_depacketizer_v1_0
         S_WAIT_SUB0   = 4'd2,
         S_WAIT_SUB1   = 4'd3,
         S_WAIT_PAYLD  = 4'd4,
-        S_WAIT_CRC    = 4'd5,
-        S_DROP_TO_END = 4'd6;
+        S_WAIT_CRC    = 4'd5;
 
     reg [3:0] r_state;
 
     //--------------------------------------------------------------------------
     // 1) packet fields
     //--------------------------------------------------------------------------
-    reg [31:0] r_hdr_w0;
-    reg [31:0] r_hdr_w1;
-    reg [31:0] r_sub_w0;
-    reg [31:0] r_sub_w1;
-
     reg [15:0] r_magic;
     reg [7:0]  r_type;
     reg [7:0]  r_channel;
     reg [15:0] r_payload_len;
     reg [7:0]  r_seq;
     reg [7:0]  r_hdr_crc_rx;
-    reg [7:0]  r_hdr_crc_calc;
 
     reg [15:0] r_frame_id;
     reg [15:0] r_frag_id;
@@ -96,10 +92,6 @@ module proto_video_rx_depacketizer_v1_0
 
     reg [15:0] r_payload_words_target;
     reg [15:0] r_payload_words_rcvd;
-
-    reg        r_pkt_is_fs;
-    reg        r_pkt_is_pay;
-    reg        r_pkt_is_fe;
 
     reg        r_header_valid;
     reg        r_drop_payload;
@@ -205,70 +197,72 @@ module proto_video_rx_depacketizer_v1_0
     endfunction
 
     //--------------------------------------------------------------------------
-    // 7) main
+    // 7) 当前 header 的组合 CRC8
+    //--------------------------------------------------------------------------
+    wire [7:0] w_hdr_crc_calc;
+    assign w_hdr_crc_calc = f_header_crc8(
+        r_magic,
+        r_type,
+        r_channel,
+        r_payload_len,
+        r_seq
+    );
+
+    //--------------------------------------------------------------------------
+    // 8) main
     //--------------------------------------------------------------------------
     always @(posedge i_clk or negedge i_rst_n) begin
         if (!i_rst_n) begin
-            r_state              <= S_WAIT_HDR0;
+            r_state                <= S_WAIT_HDR0;
 
-            r_hdr_w0             <= 32'd0;
-            r_hdr_w1             <= 32'd0;
-            r_sub_w0             <= 32'd0;
-            r_sub_w1             <= 32'd0;
+            r_magic                <= 16'd0;
+            r_type                 <= 8'd0;
+            r_channel              <= 8'd0;
+            r_payload_len          <= 16'd0;
+            r_seq                  <= 8'd0;
+            r_hdr_crc_rx           <= 8'd0;
 
-            r_magic              <= 16'd0;
-            r_type               <= 8'd0;
-            r_channel            <= 8'd0;
-            r_payload_len        <= 16'd0;
-            r_seq                <= 8'd0;
-            r_hdr_crc_rx         <= 8'd0;
-            r_hdr_crc_calc       <= 8'd0;
-
-            r_frame_id           <= 16'd0;
-            r_frag_id            <= 16'd0;
-            r_frag_total         <= 16'd0;
-            r_flags              <= 8'd0;
-            r_pix_fmt            <= 8'd0;
+            r_frame_id             <= 16'd0;
+            r_frag_id              <= 16'd0;
+            r_frag_total           <= 16'd0;
+            r_flags                <= 8'd0;
+            r_pix_fmt              <= 8'd0;
 
             r_payload_words_target <= 16'd0;
             r_payload_words_rcvd   <= 16'd0;
 
-            r_pkt_is_fs          <= 1'b0;
-            r_pkt_is_pay         <= 1'b0;
-            r_pkt_is_fe          <= 1'b0;
+            r_header_valid         <= 1'b0;
+            r_drop_payload         <= 1'b0;
 
-            r_header_valid       <= 1'b0;
-            r_drop_payload       <= 1'b0;
+            r_frame_active         <= 1'b0;
+            r_active_frame_id      <= 16'd0;
+            r_expected_frag_id     <= 16'd0;
+            r_pending_frame_sof    <= 1'b0;
 
-            r_frame_active       <= 1'b0;
-            r_active_frame_id    <= 16'd0;
-            r_expected_frag_id   <= 16'd0;
-            r_pending_frame_sof  <= 1'b0;
+            r_err_magic            <= 1'b0;
+            r_err_channel          <= 1'b0;
+            r_err_type             <= 1'b0;
+            r_err_len              <= 1'b0;
+            r_err_pixfmt           <= 1'b0;
+            r_err_frag             <= 1'b0;
+            r_err_unexpected_last  <= 1'b0;
+            r_err_missing_last     <= 1'b0;
+            r_err_fifo_overflow    <= 1'b0;
 
-            r_err_magic          <= 1'b0;
-            r_err_channel        <= 1'b0;
-            r_err_type           <= 1'b0;
-            r_err_len            <= 1'b0;
-            r_err_pixfmt         <= 1'b0;
-            r_err_frag           <= 1'b0;
-            r_err_unexpected_last<= 1'b0;
-            r_err_missing_last   <= 1'b0;
-            r_err_fifo_overflow  <= 1'b0;
+            r_crc32_reg            <= 32'hFFFF_FFFF;
 
-            r_crc32_reg          <= 32'hFFFF_FFFF;
+            o_word_fifo_din        <= 36'd0;
+            o_word_fifo_wr_en      <= 1'b0;
 
-            o_word_fifo_din      <= 36'd0;
-            o_word_fifo_wr_en    <= 1'b0;
-
-            o_dbg_frame_id       <= 16'd0;
-            o_dbg_frag_id        <= 16'd0;
-            o_dbg_frag_total     <= 16'd0;
-            o_dbg_seq            <= 8'd0;
-            o_dbg_pkt_type       <= 8'd0;
-            o_dbg_hdr_crc_ok     <= 1'b0;
-            o_dbg_crc32_ok       <= 1'b0;
-            o_dbg_state          <= S_WAIT_HDR0;
-            o_dbg_err_sticky     <= 1'b0;
+            o_dbg_frame_id         <= 16'd0;
+            o_dbg_frag_id          <= 16'd0;
+            o_dbg_frag_total       <= 16'd0;
+            o_dbg_seq              <= 8'd0;
+            o_dbg_pkt_type         <= 8'd0;
+            o_dbg_hdr_crc_ok       <= 1'b0;
+            o_dbg_crc32_ok         <= 1'b0;
+            o_dbg_state            <= S_WAIT_HDR0;
+            o_dbg_err_sticky       <= 1'b0;
         end
         else begin
             o_word_fifo_wr_en <= 1'b0;
@@ -280,20 +274,15 @@ module proto_video_rx_depacketizer_v1_0
                 //------------------------------------------------------------------
                 S_WAIT_HDR0: begin
                     if (i_user_rx_valid) begin
-                        // 新包开始，先清掉上一包的调试结果，避免 ILA 看到旧值
+                        // 新包开始，先清上一包的调试结果
                         o_dbg_hdr_crc_ok <= 1'b0;
                         o_dbg_crc32_ok   <= 1'b0;
 
-                        r_hdr_w0         <= i_user_rx_data;
                         r_crc32_reg      <= f_crc32_word(32'hFFFF_FFFF, i_user_rx_data);
 
                         r_magic          <= i_user_rx_data[15:0];
                         r_type           <= i_user_rx_data[23:16];
                         r_channel        <= i_user_rx_data[31:24];
-
-                        r_pkt_is_fs      <= 1'b0;
-                        r_pkt_is_pay     <= 1'b0;
-                        r_pkt_is_fe      <= 1'b0;
 
                         r_header_valid   <= 1'b0;
                         r_drop_payload   <= 1'b0;
@@ -308,28 +297,20 @@ module proto_video_rx_depacketizer_v1_0
                         end
                     end
                 end
+
                 //------------------------------------------------------------------
                 // HDR1
                 //------------------------------------------------------------------
                 S_WAIT_HDR1: begin
                     if (i_user_rx_valid) begin
-                        r_hdr_w1       <= i_user_rx_data;
-                        r_crc32_reg    <= f_crc32_word(r_crc32_reg, i_user_rx_data);
+                        r_crc32_reg   <= f_crc32_word(r_crc32_reg, i_user_rx_data);
 
-                        r_payload_len  <= i_user_rx_data[15:0];
-                        r_seq          <= i_user_rx_data[23:16];
-                        r_hdr_crc_rx   <= i_user_rx_data[31:24];
+                        r_payload_len <= i_user_rx_data[15:0];
+                        r_seq         <= i_user_rx_data[23:16];
+                        r_hdr_crc_rx  <= i_user_rx_data[31:24];
 
-                        r_hdr_crc_calc <= f_header_crc8(
-                            r_magic,
-                            r_type,
-                            r_channel,
-                            i_user_rx_data[15:0],
-                            i_user_rx_data[23:16]
-                        );
-
-                        o_dbg_seq      <= i_user_rx_data[23:16];
-                        o_dbg_pkt_type <= r_type;
+                        o_dbg_seq     <= i_user_rx_data[23:16];
+                        o_dbg_pkt_type<= r_type;
 
                         if (i_user_rx_last) begin
                             r_err_unexpected_last <= 1'b1;
@@ -347,14 +328,13 @@ module proto_video_rx_depacketizer_v1_0
                 //------------------------------------------------------------------
                 S_WAIT_SUB0: begin
                     if (i_user_rx_valid) begin
-                        r_sub_w0      <= i_user_rx_data;
-                        r_crc32_reg   <= f_crc32_word(r_crc32_reg, i_user_rx_data);
+                        r_crc32_reg    <= f_crc32_word(r_crc32_reg, i_user_rx_data);
 
-                        r_frame_id    <= i_user_rx_data[15:0];
-                        r_frag_id     <= i_user_rx_data[31:16];
+                        r_frame_id     <= i_user_rx_data[15:0];
+                        r_frag_id      <= i_user_rx_data[31:16];
 
-                        o_dbg_frame_id<= i_user_rx_data[15:0];
-                        o_dbg_frag_id <= i_user_rx_data[31:16];
+                        o_dbg_frame_id <= i_user_rx_data[15:0];
+                        o_dbg_frag_id  <= i_user_rx_data[31:16];
 
                         if (i_user_rx_last) begin
                             r_err_unexpected_last <= 1'b1;
@@ -372,25 +352,19 @@ module proto_video_rx_depacketizer_v1_0
                 //------------------------------------------------------------------
                 S_WAIT_SUB1: begin
                     if (i_user_rx_valid) begin
-                        r_sub_w1       <= i_user_rx_data;
-                        r_crc32_reg    <= f_crc32_word(r_crc32_reg, i_user_rx_data);
+                        r_crc32_reg      <= f_crc32_word(r_crc32_reg, i_user_rx_data);
 
-                        r_frag_total   <= i_user_rx_data[15:0];
-                        r_flags        <= i_user_rx_data[23:16];
-                        r_pix_fmt      <= i_user_rx_data[31:24];
+                        r_frag_total     <= i_user_rx_data[15:0];
+                        r_flags          <= i_user_rx_data[23:16];
+                        r_pix_fmt        <= i_user_rx_data[31:24];
 
                         o_dbg_frag_total <= i_user_rx_data[15:0];
 
-                        // decode packet type
-                        r_pkt_is_fs    <= (r_type == TYPE_VIDEO_FS);
-                        r_pkt_is_pay   <= (r_type == TYPE_VIDEO_PAY);
-                        r_pkt_is_fe    <= (r_type == TYPE_VIDEO_FE);
-
                         // header checks
-                        o_dbg_hdr_crc_ok <= (r_hdr_crc_calc == r_hdr_crc_rx);
+                        o_dbg_hdr_crc_ok <= (w_hdr_crc_calc == r_hdr_crc_rx);
 
-                        r_header_valid <= 1'b1;
-                        r_drop_payload <= 1'b0;
+                        r_header_valid   <= 1'b1;
+                        r_drop_payload   <= 1'b0;
 
                         if (r_magic != 16'h5AA5) begin
                             r_err_magic      <= 1'b1;
@@ -415,7 +389,7 @@ module proto_video_rx_depacketizer_v1_0
                             o_dbg_err_sticky <= 1'b1;
                         end
 
-                        if (r_hdr_crc_calc != r_hdr_crc_rx) begin
+                        if (w_hdr_crc_calc != r_hdr_crc_rx) begin
                             r_header_valid   <= 1'b0;
                             r_drop_payload   <= 1'b1;
                             o_dbg_err_sticky <= 1'b1;
@@ -431,20 +405,20 @@ module proto_video_rx_depacketizer_v1_0
                         // payload length check:
                         // payload_len = VideoSubHeader(8B) + payload
                         if (r_payload_len < 16'd8) begin
-                            r_err_len        <= 1'b1;
-                            r_header_valid   <= 1'b0;
-                            r_drop_payload   <= 1'b1;
-                            o_dbg_err_sticky <= 1'b1;
+                            r_err_len              <= 1'b1;
+                            r_header_valid         <= 1'b0;
+                            r_drop_payload         <= 1'b1;
+                            o_dbg_err_sticky       <= 1'b1;
                             r_payload_words_target <= 16'd0;
                         end
                         else if (r_type == TYPE_VIDEO_PAY) begin
                             // VIDEO_PAYLOAD must be subheader + N*4 byte payload
-                            if ((r_payload_len - 16'd8) < 16'd4 ||
-                                ((r_payload_len - 16'd8) & 16'h0003) != 16'd0) begin
-                                r_err_len        <= 1'b1;
-                                r_header_valid   <= 1'b0;
-                                r_drop_payload   <= 1'b1;
-                                o_dbg_err_sticky <= 1'b1;
+                            if (((r_payload_len - 16'd8) < 16'd4) ||
+                                (((r_payload_len - 16'd8) & 16'h0003) != 16'd0)) begin
+                                r_err_len              <= 1'b1;
+                                r_header_valid         <= 1'b0;
+                                r_drop_payload         <= 1'b1;
+                                o_dbg_err_sticky       <= 1'b1;
                                 r_payload_words_target <= 16'd0;
                             end
                             else begin
@@ -501,9 +475,9 @@ module proto_video_rx_depacketizer_v1_0
                                     o_dbg_err_sticky    <= 1'b1;
                                 end
                                 else begin
-                                    o_word_fifo_wr_en <= 1'b1;
+                                    o_word_fifo_wr_en     <= 1'b1;
                                     o_word_fifo_din[31:0] <= i_user_rx_data;
-                                    o_word_fifo_din[35:34] <= 2'b00;
+                                    o_word_fifo_din[35:34]<= 2'b00;
 
                                     // SOF：只有当之前收到合法 FRAME_START，且这是整帧首个 payload word
                                     if (r_pending_frame_sof && (r_payload_words_rcvd == 16'd0)) begin
@@ -527,7 +501,7 @@ module proto_video_rx_depacketizer_v1_0
 
                             if (r_payload_words_rcvd == (r_payload_words_target - 16'd1)) begin
                                 r_payload_words_rcvd <= 16'd0;
-                                r_state <= S_WAIT_CRC;
+                                r_state              <= S_WAIT_CRC;
                             end
                             else begin
                                 r_payload_words_rcvd <= r_payload_words_rcvd + 16'd1;
@@ -548,31 +522,27 @@ module proto_video_rx_depacketizer_v1_0
                             o_dbg_err_sticky   <= 1'b1;
                         end
 
-                        // packet-level tracking
                         if ((i_user_rx_data == ~r_crc32_reg) && r_header_valid) begin
-                            // 当前这个包是合法包：
-                            // 先清掉旧的 sticky 状态，让屏幕状态能从“历史错误”恢复到“当前正常”
-                            o_dbg_err_sticky       <= 1'b0;
-                        
-                            r_err_magic            <= 1'b0;
-                            r_err_channel          <= 1'b0;
-                            r_err_type             <= 1'b0;
-                            r_err_len              <= 1'b0;
-                            r_err_pixfmt           <= 1'b0;
-                            r_err_frag             <= 1'b0;
-                            r_err_unexpected_last  <= 1'b0;
-                            r_err_missing_last     <= 1'b0;
-                            r_err_fifo_overflow    <= 1'b0;
-                        
-                            // valid packet
+                            // 当前这个包合法：先清掉旧的 sticky 状态
+                            o_dbg_err_sticky      <= 1'b0;
+
+                            r_err_magic           <= 1'b0;
+                            r_err_channel         <= 1'b0;
+                            r_err_type            <= 1'b0;
+                            r_err_len             <= 1'b0;
+                            r_err_pixfmt          <= 1'b0;
+                            r_err_frag            <= 1'b0;
+                            r_err_unexpected_last <= 1'b0;
+                            r_err_missing_last    <= 1'b0;
+                            r_err_fifo_overflow   <= 1'b0;
+
                             if (r_type == TYPE_VIDEO_FS) begin
                                 // new frame start
                                 if (r_frame_active) begin
-                                    // 上一帧未正常结束就来了新 FS
                                     r_err_frag       <= 1'b1;
                                     o_dbg_err_sticky <= 1'b1;
                                 end
-                        
+
                                 r_frame_active      <= 1'b1;
                                 r_active_frame_id   <= r_frame_id;
                                 r_expected_frag_id  <= 16'd0;
@@ -589,12 +559,12 @@ module proto_video_rx_depacketizer_v1_0
                                         r_err_frag       <= 1'b1;
                                         o_dbg_err_sticky <= 1'b1;
                                     end
-                        
+
                                     if (r_frag_id != r_expected_frag_id) begin
                                         r_err_frag       <= 1'b1;
                                         o_dbg_err_sticky <= 1'b1;
                                     end
-                        
+
                                     r_expected_frag_id <= r_frag_id + 16'd1;
                                 end
                             end
@@ -609,12 +579,12 @@ module proto_video_rx_depacketizer_v1_0
                                         r_err_frag       <= 1'b1;
                                         o_dbg_err_sticky <= 1'b1;
                                     end
-                        
+
                                     if (r_frag_id != (r_frag_total - 16'd1)) begin
                                         r_err_frag       <= 1'b1;
                                         o_dbg_err_sticky <= 1'b1;
                                     end
-                        
+
                                     r_frame_active <= 1'b0;
                                 end
                             end
@@ -634,5 +604,13 @@ module proto_video_rx_depacketizer_v1_0
             endcase
         end
     end
+
+
+(* keep = "true" *) wire [15:0] ila_rx_magic        = r_magic;
+(* keep = "true" *) wire [7:0]  ila_rx_type         = r_type;
+(* keep = "true" *) wire [7:0]  ila_rx_channel      = r_channel;
+(* keep = "true" *) wire [15:0] ila_rx_payload_len  = r_payload_len;
+(* keep = "true" *) wire [7:0]  ila_rx_hdr_crc_rx   = r_hdr_crc_rx;
+(* keep = "true" *) wire [7:0]  ila_rx_hdr_crc_calc = w_hdr_crc_calc;
 
 endmodule
