@@ -602,7 +602,7 @@ module top
     //==========================================================================
     // 15) 协议 TX / RX
     //==========================================================================
-    proto_video_tx_packetizer_v1_0
+    proto_video_tx_packetizer_v1_1
     #(
         .ACTIVE_W        (1920),
         .ACTIVE_H        (1080),
@@ -613,13 +613,14 @@ module top
         .TYPE_VIDEO_PAY  (8'h11),
         .TYPE_VIDEO_FE   (8'h21)
     )
-    u_proto_video_tx_packetizer_v1_0
+    u_proto_video_tx_packetizer_v1_1
     (
         .i_clk              (sys_clk),
         .i_rst_n            (~sys_rst),
 
         .i_word_fifo_empty  (tx_word_fifo_empty),
         .i_word_fifo_dout   (tx_word_fifo_dout),
+        .i_word_fifo_rnum   (tx_word_fifo_rnum),
         .o_word_fifo_rd_en  (tx_word_fifo_rd_en),
 
         .i_user_tx_ready    (user_tx_ready),
@@ -637,7 +638,7 @@ module top
         .o_dbg_state        (dbg_tx_state),
         .o_dbg_err_sticky   (dbg_tx_err_sticky)
     );
-
+    
     proto_video_rx_depacketizer_v1_0
     #(
         .CHANNEL_ID      (8'd0),
@@ -679,6 +680,8 @@ module top
     //==========================================================================
     // 16) TX / RX word async FIFO（请按此接口风格生成）
     //==========================================================================
+    wire [12:0] tx_word_fifo_rnum;
+
     fifo_top_tx36x4096 u_fifo_top_tx36x4096
     (
         .Data           (tx_word_fifo_din),
@@ -687,6 +690,7 @@ module top
         .RdClk          (sys_clk),
         .WrEn           (tx_word_fifo_wr_en),
         .RdEn           (tx_word_fifo_rd_en),
+        .Rnum           (tx_word_fifo_rnum),
         .Almost_Empty   (tx_word_fifo_almost_empty),
         .Almost_Full    (tx_word_fifo_almost_full),
         .Q              (tx_word_fifo_dout),
