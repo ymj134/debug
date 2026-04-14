@@ -4,42 +4,6 @@
     <Mode>Standard</Mode>
     <AoCore index="0" sample_clock="sys_clk" trig_type="0" storage_depth="1024" window_num="1" capture_amount="1024" implementation="0" trigger_pos="0" module_name="top" force_trigger_by_falling_edge="false" capture_init_data_enabled="false">
         <SignalList>
-            <Bus capture_enable="true" name="proto_tx_user_data[31:0]">
-                <Signal>proto_tx_user_data[31]</Signal>
-                <Signal>proto_tx_user_data[30]</Signal>
-                <Signal>proto_tx_user_data[29]</Signal>
-                <Signal>proto_tx_user_data[28]</Signal>
-                <Signal>proto_tx_user_data[27]</Signal>
-                <Signal>proto_tx_user_data[26]</Signal>
-                <Signal>proto_tx_user_data[25]</Signal>
-                <Signal>proto_tx_user_data[24]</Signal>
-                <Signal>proto_tx_user_data[23]</Signal>
-                <Signal>proto_tx_user_data[22]</Signal>
-                <Signal>proto_tx_user_data[21]</Signal>
-                <Signal>proto_tx_user_data[20]</Signal>
-                <Signal>proto_tx_user_data[19]</Signal>
-                <Signal>proto_tx_user_data[18]</Signal>
-                <Signal>proto_tx_user_data[17]</Signal>
-                <Signal>proto_tx_user_data[16]</Signal>
-                <Signal>proto_tx_user_data[15]</Signal>
-                <Signal>proto_tx_user_data[14]</Signal>
-                <Signal>proto_tx_user_data[13]</Signal>
-                <Signal>proto_tx_user_data[12]</Signal>
-                <Signal>proto_tx_user_data[11]</Signal>
-                <Signal>proto_tx_user_data[10]</Signal>
-                <Signal>proto_tx_user_data[9]</Signal>
-                <Signal>proto_tx_user_data[8]</Signal>
-                <Signal>proto_tx_user_data[7]</Signal>
-                <Signal>proto_tx_user_data[6]</Signal>
-                <Signal>proto_tx_user_data[5]</Signal>
-                <Signal>proto_tx_user_data[4]</Signal>
-                <Signal>proto_tx_user_data[3]</Signal>
-                <Signal>proto_tx_user_data[2]</Signal>
-                <Signal>proto_tx_user_data[1]</Signal>
-                <Signal>proto_tx_user_data[0]</Signal>
-            </Bus>
-            <Signal capture_enable="true">proto_tx_user_valid</Signal>
-            <Signal capture_enable="true">proto_tx_user_last</Signal>
             <Bus capture_enable="true" name="user_rx_data[31:0]">
                 <Signal>user_rx_data[31]</Signal>
                 <Signal>user_rx_data[30]</Signal>
@@ -75,27 +39,13 @@
                 <Signal>user_rx_data[0]</Signal>
             </Bus>
             <Signal capture_enable="true">user_rx_valid</Signal>
+            <Bus capture_enable="true" name="dbg_rx_state[3:0]">
+                <Signal>dbg_rx_state[3]</Signal>
+                <Signal>dbg_rx_state[2]</Signal>
+                <Signal>dbg_rx_state[1]</Signal>
+                <Signal>dbg_rx_state[0]</Signal>
+            </Bus>
             <Signal capture_enable="true">user_rx_last</Signal>
-            <Bus capture_enable="true" name="dbg_tx_pkt_type[7:0]">
-                <Signal>dbg_tx_pkt_type[7]</Signal>
-                <Signal>dbg_tx_pkt_type[6]</Signal>
-                <Signal>dbg_tx_pkt_type[5]</Signal>
-                <Signal>dbg_tx_pkt_type[4]</Signal>
-                <Signal>dbg_tx_pkt_type[3]</Signal>
-                <Signal>dbg_tx_pkt_type[2]</Signal>
-                <Signal>dbg_tx_pkt_type[1]</Signal>
-                <Signal>dbg_tx_pkt_type[0]</Signal>
-            </Bus>
-            <Bus capture_enable="true" name="dbg_tx_seq[7:0]">
-                <Signal>dbg_tx_seq[7]</Signal>
-                <Signal>dbg_tx_seq[6]</Signal>
-                <Signal>dbg_tx_seq[5]</Signal>
-                <Signal>dbg_tx_seq[4]</Signal>
-                <Signal>dbg_tx_seq[3]</Signal>
-                <Signal>dbg_tx_seq[2]</Signal>
-                <Signal>dbg_tx_seq[1]</Signal>
-                <Signal>dbg_tx_seq[0]</Signal>
-            </Bus>
             <Bus capture_enable="true" name="dbg_rx_pkt_type[7:0]">
                 <Signal>dbg_rx_pkt_type[7]</Signal>
                 <Signal>dbg_rx_pkt_type[6]</Signal>
@@ -118,11 +68,12 @@
             </Bus>
             <Signal capture_enable="true">dbg_rx_hdr_crc_ok</Signal>
             <Signal capture_enable="true">dbg_rx_crc32_ok</Signal>
+            <Signal capture_enable="true">dbg_rx_err_sticky</Signal>
         </SignalList>
         <Triggers>
             <Trigger index="0">
                 <SignalList>
-                    <Signal>proto_tx_user_last</Signal>
+                    <Signal>dbg_rx_err_sticky</Signal>
                 </SignalList>
             </Trigger>
             <Trigger index="1"/>
@@ -142,7 +93,7 @@
             <Trigger index="15"/>
         </Triggers>
         <MatchUnits>
-            <MatchUnit index="0" enabled="1" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="1" value1="0" trigger="0"/>
+            <MatchUnit index="0" enabled="1" match_type="1" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="R" value1="0" trigger="0"/>
             <MatchUnit index="1" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
             <MatchUnit index="2" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
             <MatchUnit index="3" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
@@ -163,5 +114,5 @@
             <Expression>M0</Expression>
         </Expressions>
     </AoCore>
-    <GAO_ID>1101011010110000</GAO_ID>
+    <GAO_ID>1000010010100100</GAO_ID>
 </GAO_CONFIG>

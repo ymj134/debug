@@ -1,10 +1,10 @@
-`timescale 1ns / 1ps
+`timescale 1 ns / 1 ps
 
 /*********************************************************************************
 * Module       : proto_video_rx_depacketizer_v1_0
-* Version      : v1.1
+* Version      : v1.2
 * Description  :
-*   VIDEO-only 协议解包器（修正版）
+*   VIDEO-only 协议解包器（带 DROP_TO_END 重同步）
 *
 *   输入：
 *     - 直接来自 RoraLink Framing 的 user_rx_* 接口
@@ -20,10 +20,9 @@
 * Notes :
 *   1) 当前版本仍为 streaming parser：在 VIDEO_PAYLOAD 包内部，payload word 会边收边转发。
 *   2) CRC32 在包尾校验完成后仅用于统计/标记，不会回滚已经输出的 payload。
-*   3) 修复了：
-*      - dbg_hdr_crc_ok / dbg_crc32_ok 残留旧值
-*      - err_sticky 永久粘住不恢复
-*      - Header CRC 比较使用旧寄存器值的歧义
+*   3) 新增 S_DROP_TO_END：
+*      - 一旦当前包头/长度/格式等判定失败，不立刻把下一个 word 当新包头
+*      - 而是持续丢弃直到遇到本包的 i_user_rx_last
 *********************************************************************************/
 
 module proto_video_rx_depacketizer_v1_0
@@ -65,12 +64,13 @@ module proto_video_rx_depacketizer_v1_0
     // 0) state
     //--------------------------------------------------------------------------
     localparam [3:0]
-        S_WAIT_HDR0   = 4'd0,
-        S_WAIT_HDR1   = 4'd1,
-        S_WAIT_SUB0   = 4'd2,
-        S_WAIT_SUB1   = 4'd3,
-        S_WAIT_PAYLD  = 4'd4,
-        S_WAIT_CRC    = 4'd5;
+        S_WAIT_HDR0    = 4'd0,
+        S_WAIT_HDR1    = 4'd1,
+        S_WAIT_SUB0    = 4'd2,
+        S_WAIT_SUB1    = 4'd3,
+        S_WAIT_PAYLD   = 4'd4,
+        S_WAIT_CRC     = 4'd5,
+        S_DROP_TO_END  = 4'd6;
 
     reg [3:0] r_state;
 
@@ -116,6 +116,7 @@ module proto_video_rx_depacketizer_v1_0
     reg r_err_unexpected_last;
     reg r_err_missing_last;
     reg r_err_fifo_overflow;
+    reg r_err_crc32;
 
     //--------------------------------------------------------------------------
     // 4) CRC
@@ -208,8 +209,43 @@ module proto_video_rx_depacketizer_v1_0
         r_seq
     );
 
+    wire w_crc32_ok;
+    assign w_crc32_ok = (i_user_rx_data == ~r_crc32_reg);
+
     //--------------------------------------------------------------------------
-    // 8) main
+    // 8) 当前包出错时，统一的“进入丢包到包尾”动作
+    //--------------------------------------------------------------------------
+    task t_enter_drop_to_end;
+        begin
+            o_dbg_err_sticky <= 1'b1;
+            r_header_valid   <= 1'b0;
+            r_drop_payload   <= 1'b1;
+            r_state          <= S_DROP_TO_END;
+        end
+    endtask
+
+    //--------------------------------------------------------------------------
+    // 9) 合法包时清错误 sticky
+    //--------------------------------------------------------------------------
+    task t_clear_error_sticky_on_good_packet;
+        begin
+            o_dbg_err_sticky      <= 1'b0;
+
+            r_err_magic           <= 1'b0;
+            r_err_channel         <= 1'b0;
+            r_err_type            <= 1'b0;
+            r_err_len             <= 1'b0;
+            r_err_pixfmt          <= 1'b0;
+            r_err_frag            <= 1'b0;
+            r_err_unexpected_last <= 1'b0;
+            r_err_missing_last    <= 1'b0;
+            r_err_fifo_overflow   <= 1'b0;
+            r_err_crc32           <= 1'b0;
+        end
+    endtask
+
+    //--------------------------------------------------------------------------
+    // 10) main
     //--------------------------------------------------------------------------
     always @(posedge i_clk or negedge i_rst_n) begin
         if (!i_rst_n) begin
@@ -248,6 +284,7 @@ module proto_video_rx_depacketizer_v1_0
             r_err_unexpected_last  <= 1'b0;
             r_err_missing_last     <= 1'b0;
             r_err_fifo_overflow    <= 1'b0;
+            r_err_crc32            <= 1'b0;
 
             r_crc32_reg            <= 32'hFFFF_FFFF;
 
@@ -274,7 +311,7 @@ module proto_video_rx_depacketizer_v1_0
                 //------------------------------------------------------------------
                 S_WAIT_HDR0: begin
                     if (i_user_rx_valid) begin
-                        // 新包开始，先清上一包的调试结果
+                        // 新包开始，先清上一包调试结果
                         o_dbg_hdr_crc_ok <= 1'b0;
                         o_dbg_crc32_ok   <= 1'b0;
 
@@ -288,6 +325,7 @@ module proto_video_rx_depacketizer_v1_0
                         r_drop_payload   <= 1'b0;
 
                         if (i_user_rx_last) begin
+                            // 这一拍已经包尾了，直接回到等新头
                             r_err_unexpected_last <= 1'b1;
                             o_dbg_err_sticky      <= 1'b1;
                             r_state               <= S_WAIT_HDR0;
@@ -360,95 +398,79 @@ module proto_video_rx_depacketizer_v1_0
 
                         o_dbg_frag_total <= i_user_rx_data[15:0];
 
-                        // header checks
+                        // 当前 header CRC 结果
                         o_dbg_hdr_crc_ok <= (w_hdr_crc_calc == r_hdr_crc_rx);
 
                         r_header_valid   <= 1'b1;
                         r_drop_payload   <= 1'b0;
 
                         if (r_magic != 16'h5AA5) begin
-                            r_err_magic      <= 1'b1;
-                            r_header_valid   <= 1'b0;
-                            r_drop_payload   <= 1'b1;
-                            o_dbg_err_sticky <= 1'b1;
+                            r_err_magic <= 1'b1;
+                            t_enter_drop_to_end();
                         end
+                        else if (r_channel != CHANNEL_ID) begin
+                            r_err_channel <= 1'b1;
+                            t_enter_drop_to_end();
+                        end
+                        else if ((r_type != TYPE_VIDEO_FS) &&
+                                 (r_type != TYPE_VIDEO_PAY) &&
+                                 (r_type != TYPE_VIDEO_FE)) begin
+                            r_err_type <= 1'b1;
+                            t_enter_drop_to_end();
+                        end
+                        else if (w_hdr_crc_calc != r_hdr_crc_rx) begin
+                            t_enter_drop_to_end();
+                        end
+                        else if (i_user_rx_data[31:24] != PIX_FMT) begin
+                            r_err_pixfmt <= 1'b1;
+                            t_enter_drop_to_end();
+                        end
+                        else begin
+                            // payload length check
+                            if (r_payload_len < 16'd8) begin
+                                r_err_len <= 1'b1;
+                                t_enter_drop_to_end();
+                            end
+                            else if (r_type == TYPE_VIDEO_PAY) begin
+                                if (((r_payload_len - 16'd8) < 16'd4) ||
+                                    (((r_payload_len - 16'd8) & 16'h0003) != 16'd0)) begin
+                                    r_err_len <= 1'b1;
+                                    t_enter_drop_to_end();
+                                end
+                                else begin
+                                    r_payload_words_target <= (r_payload_len - 16'd8) >> 2;
+                                    r_payload_words_rcvd   <= 16'd0;
 
-                        if (r_channel != CHANNEL_ID) begin
-                            r_err_channel    <= 1'b1;
-                            r_header_valid   <= 1'b0;
-                            r_drop_payload   <= 1'b1;
-                            o_dbg_err_sticky <= 1'b1;
-                        end
-
-                        if ((r_type != TYPE_VIDEO_FS) &&
-                            (r_type != TYPE_VIDEO_PAY) &&
-                            (r_type != TYPE_VIDEO_FE)) begin
-                            r_err_type       <= 1'b1;
-                            r_header_valid   <= 1'b0;
-                            r_drop_payload   <= 1'b1;
-                            o_dbg_err_sticky <= 1'b1;
-                        end
-
-                        if (w_hdr_crc_calc != r_hdr_crc_rx) begin
-                            r_header_valid   <= 1'b0;
-                            r_drop_payload   <= 1'b1;
-                            o_dbg_err_sticky <= 1'b1;
-                        end
-
-                        if (i_user_rx_data[31:24] != PIX_FMT) begin
-                            r_err_pixfmt     <= 1'b1;
-                            r_header_valid   <= 1'b0;
-                            r_drop_payload   <= 1'b1;
-                            o_dbg_err_sticky <= 1'b1;
-                        end
-
-                        // payload length check:
-                        // payload_len = VideoSubHeader(8B) + payload
-                        if (r_payload_len < 16'd8) begin
-                            r_err_len              <= 1'b1;
-                            r_header_valid         <= 1'b0;
-                            r_drop_payload         <= 1'b1;
-                            o_dbg_err_sticky       <= 1'b1;
-                            r_payload_words_target <= 16'd0;
-                        end
-                        else if (r_type == TYPE_VIDEO_PAY) begin
-                            // VIDEO_PAYLOAD must be subheader + N*4 byte payload
-                            if (((r_payload_len - 16'd8) < 16'd4) ||
-                                (((r_payload_len - 16'd8) & 16'h0003) != 16'd0)) begin
-                                r_err_len              <= 1'b1;
-                                r_header_valid         <= 1'b0;
-                                r_drop_payload         <= 1'b1;
-                                o_dbg_err_sticky       <= 1'b1;
-                                r_payload_words_target <= 16'd0;
+                                    if (i_user_rx_last) begin
+                                        r_err_unexpected_last <= 1'b1;
+                                        o_dbg_err_sticky      <= 1'b1;
+                                        r_state               <= S_WAIT_HDR0;
+                                    end
+                                    else begin
+                                        r_state <= S_WAIT_PAYLD;
+                                    end
+                                end
                             end
                             else begin
-                                r_payload_words_target <= (r_payload_len - 16'd8) >> 2;
-                            end
-                        end
-                        else begin
-                            // FRAME_START / FRAME_END: no payload, only subheader
-                            if (r_payload_len != 16'd8) begin
-                                r_err_len        <= 1'b1;
-                                r_header_valid   <= 1'b0;
-                                r_drop_payload   <= 1'b1;
-                                o_dbg_err_sticky <= 1'b1;
-                            end
-                            r_payload_words_target <= 16'd0;
-                        end
+                                // FRAME_START / FRAME_END：payload_len 必须正好是 8
+                                if (r_payload_len != 16'd8) begin
+                                    r_err_len <= 1'b1;
+                                    t_enter_drop_to_end();
+                                end
+                                else begin
+                                    r_payload_words_target <= 16'd0;
+                                    r_payload_words_rcvd   <= 16'd0;
 
-                        r_payload_words_rcvd <= 16'd0;
-
-                        if (i_user_rx_last) begin
-                            // SUB1 不应该就是包尾，后面至少还要一个 CRC
-                            r_err_unexpected_last <= 1'b1;
-                            o_dbg_err_sticky      <= 1'b1;
-                            r_state               <= S_WAIT_HDR0;
-                        end
-                        else if (r_type == TYPE_VIDEO_PAY) begin
-                            r_state <= S_WAIT_PAYLD;
-                        end
-                        else begin
-                            r_state <= S_WAIT_CRC;
+                                    if (i_user_rx_last) begin
+                                        r_err_unexpected_last <= 1'b1;
+                                        o_dbg_err_sticky      <= 1'b1;
+                                        r_state               <= S_WAIT_HDR0;
+                                    end
+                                    else begin
+                                        r_state <= S_WAIT_CRC;
+                                    end
+                                end
+                            end
                         end
                     end
                 end
@@ -458,8 +480,7 @@ module proto_video_rx_depacketizer_v1_0
                 //------------------------------------------------------------------
                 S_WAIT_PAYLD: begin
                     if (i_user_rx_valid) begin
-                        // payload words should not assert user_rx_last here;
-                        // crc word comes after payload
+                        // payload 中间不该出现 last，last 只该在 CRC 那个 word
                         if (i_user_rx_last) begin
                             r_err_unexpected_last <= 1'b1;
                             o_dbg_err_sticky      <= 1'b1;
@@ -468,18 +489,17 @@ module proto_video_rx_depacketizer_v1_0
                         else begin
                             r_crc32_reg <= f_crc32_word(r_crc32_reg, i_user_rx_data);
 
-                            // 边收边转发
                             if (r_header_valid && !r_drop_payload) begin
                                 if (i_word_fifo_full) begin
                                     r_err_fifo_overflow <= 1'b1;
-                                    o_dbg_err_sticky    <= 1'b1;
+                                    t_enter_drop_to_end();
                                 end
                                 else begin
-                                    o_word_fifo_wr_en     <= 1'b1;
-                                    o_word_fifo_din[31:0] <= i_user_rx_data;
-                                    o_word_fifo_din[35:34]<= 2'b00;
+                                    o_word_fifo_wr_en      <= 1'b1;
+                                    o_word_fifo_din[31:0]  <= i_user_rx_data;
+                                    o_word_fifo_din[35:34] <= 2'b00;
 
-                                    // SOF：只有当之前收到合法 FRAME_START，且这是整帧首个 payload word
+                                    // SOF：收到合法 FRAME_START 后，本帧首个 payload word
                                     if (r_pending_frame_sof && (r_payload_words_rcvd == 16'd0)) begin
                                         o_word_fifo_din[32] <= 1'b1;
                                         r_pending_frame_sof <= 1'b0;
@@ -488,7 +508,7 @@ module proto_video_rx_depacketizer_v1_0
                                         o_word_fifo_din[32] <= 1'b0;
                                     end
 
-                                    // EOF：最后一个 fragment 的最后一个 payload word
+                                    // EOF：最后一片最后一个 payload word
                                     if ((r_frag_id == (r_frag_total - 16'd1)) &&
                                         (r_payload_words_rcvd == (r_payload_words_target - 16'd1))) begin
                                         o_word_fifo_din[33] <= 1'b1;
@@ -499,12 +519,14 @@ module proto_video_rx_depacketizer_v1_0
                                 end
                             end
 
-                            if (r_payload_words_rcvd == (r_payload_words_target - 16'd1)) begin
-                                r_payload_words_rcvd <= 16'd0;
-                                r_state              <= S_WAIT_CRC;
-                            end
-                            else begin
-                                r_payload_words_rcvd <= r_payload_words_rcvd + 16'd1;
+                            if (r_state != S_DROP_TO_END) begin
+                                if (r_payload_words_rcvd == (r_payload_words_target - 16'd1)) begin
+                                    r_payload_words_rcvd <= 16'd0;
+                                    r_state              <= S_WAIT_CRC;
+                                end
+                                else begin
+                                    r_payload_words_rcvd <= r_payload_words_rcvd + 16'd1;
+                                end
                             end
                         end
                     end
@@ -515,29 +537,18 @@ module proto_video_rx_depacketizer_v1_0
                 //------------------------------------------------------------------
                 S_WAIT_CRC: begin
                     if (i_user_rx_valid) begin
-                        o_dbg_crc32_ok <= (i_user_rx_data == ~r_crc32_reg);
+                        o_dbg_crc32_ok <= w_crc32_ok;
 
                         if (!i_user_rx_last) begin
                             r_err_missing_last <= 1'b1;
                             o_dbg_err_sticky   <= 1'b1;
+                            r_state            <= S_DROP_TO_END;
                         end
-
-                        if ((i_user_rx_data == ~r_crc32_reg) && r_header_valid) begin
-                            // 当前这个包合法：先清掉旧的 sticky 状态
-                            o_dbg_err_sticky      <= 1'b0;
-
-                            r_err_magic           <= 1'b0;
-                            r_err_channel         <= 1'b0;
-                            r_err_type            <= 1'b0;
-                            r_err_len             <= 1'b0;
-                            r_err_pixfmt          <= 1'b0;
-                            r_err_frag            <= 1'b0;
-                            r_err_unexpected_last <= 1'b0;
-                            r_err_missing_last    <= 1'b0;
-                            r_err_fifo_overflow   <= 1'b0;
+                        else if (w_crc32_ok && r_header_valid) begin
+                            // 当前包合法，先清旧错误 sticky
+                            t_clear_error_sticky_on_good_packet();
 
                             if (r_type == TYPE_VIDEO_FS) begin
-                                // new frame start
                                 if (r_frame_active) begin
                                     r_err_frag       <= 1'b1;
                                     o_dbg_err_sticky <= 1'b1;
@@ -549,7 +560,6 @@ module proto_video_rx_depacketizer_v1_0
                                 r_pending_frame_sof <= 1'b1;
                             end
                             else if (r_type == TYPE_VIDEO_PAY) begin
-                                // payload packet
                                 if (!r_frame_active) begin
                                     r_err_frag       <= 1'b1;
                                     o_dbg_err_sticky <= 1'b1;
@@ -569,7 +579,6 @@ module proto_video_rx_depacketizer_v1_0
                                 end
                             end
                             else if (r_type == TYPE_VIDEO_FE) begin
-                                // frame end
                                 if (!r_frame_active) begin
                                     r_err_frag       <= 1'b1;
                                     o_dbg_err_sticky <= 1'b1;
@@ -588,11 +597,22 @@ module proto_video_rx_depacketizer_v1_0
                                     r_frame_active <= 1'b0;
                                 end
                             end
+
+                            r_state <= S_WAIT_HDR0;
                         end
                         else begin
+                            r_err_crc32      <= 1'b1;
                             o_dbg_err_sticky <= 1'b1;
+                            r_state          <= S_WAIT_HDR0; // CRC word 本身已经是包尾
                         end
+                    end
+                end
 
+                //------------------------------------------------------------------
+                // 当前包坏了：一直丢到包尾
+                //------------------------------------------------------------------
+                S_DROP_TO_END: begin
+                    if (i_user_rx_valid && i_user_rx_last) begin
                         r_state <= S_WAIT_HDR0;
                     end
                 end
@@ -604,13 +624,5 @@ module proto_video_rx_depacketizer_v1_0
             endcase
         end
     end
-
-
-(* keep = "true" *) wire [15:0] ila_rx_magic        = r_magic;
-(* keep = "true" *) wire [7:0]  ila_rx_type         = r_type;
-(* keep = "true" *) wire [7:0]  ila_rx_channel      = r_channel;
-(* keep = "true" *) wire [15:0] ila_rx_payload_len  = r_payload_len;
-(* keep = "true" *) wire [7:0]  ila_rx_hdr_crc_rx   = r_hdr_crc_rx;
-(* keep = "true" *) wire [7:0]  ila_rx_hdr_crc_calc = w_hdr_crc_calc;
 
 endmodule

@@ -766,6 +766,9 @@ module top
     (* keep = "true" *) wire        ila_rx_stream_enable     = rx_stream_enable_pclk;
     (* keep = "true" *) wire        ila_rx_underflow         = rx_underflow_sticky_pclk;
 
+
+    (* keep = "true" *) wire [12:0] ila_tx_word_fifo_rnum = tx_word_fifo_rnum;
+
 endmodule
 
 
