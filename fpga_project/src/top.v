@@ -308,7 +308,7 @@ module top
                                     24'h0000FF;
 
     // unpacker 在 active 区持续按需吐像素
-    assign rx_pix_ready = tp_de && channel_up_pclk && (~rx_proto_err_pclk);
+    assign rx_pix_ready = channel_up_pclk ;
 
     // HDMI 输出逻辑：
     // active 区内：
@@ -344,7 +344,7 @@ module top
             rx_word_fifo_overflow_meta_pclk <= rx_word_fifo_overflow_sticky;
             rx_word_fifo_overflow_pclk      <= rx_word_fifo_overflow_meta_pclk;
 
-            if (!channel_up_pclk || rx_proto_err_pclk) begin
+            if (!channel_up_pclk) begin
                 rx_stream_enable_pclk    <= 1'b0;
                 rx_underflow_sticky_pclk <= 1'b0;
             end
@@ -369,7 +369,7 @@ module top
     assign led_o[1] = gt_pll_ok;
     assign led_o[2] = channel_up;
     assign led_o[3] = mon_good_pkt_seen_sticky;
-    
+
     assign test_o[0] = tx_word_fifo_overflow_sticky;
     assign test_o[1] = rx_word_fifo_overflow_sticky;
     assign test_o[2] = mon_drop_seen_sticky;
