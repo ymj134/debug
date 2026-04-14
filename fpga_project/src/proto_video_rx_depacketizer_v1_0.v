@@ -2,7 +2,7 @@
 
 /*********************************************************************************
 * Module       : proto_video_rx_depacketizer_v1_0
-* Version      : v1.2
+* Version      : v1.2a
 * Description  :
 *   VIDEO-only 协议解包器（带 DROP_TO_END 重同步）
 *
@@ -23,6 +23,8 @@
 *   3) 新增 S_DROP_TO_END：
 *      - 一旦当前包头/长度/格式等判定失败，不立刻把下一个 word 当新包头
 *      - 而是持续丢弃直到遇到本包的 i_user_rx_last
+*   4) 修正：
+*      - S_WAIT_PAYLD 中如果本拍因 fifo_full 进入 DROP_TO_END，不再继续推进 payload 计数/状态
 *********************************************************************************/
 
 module proto_video_rx_depacketizer_v1_0
@@ -325,7 +327,6 @@ module proto_video_rx_depacketizer_v1_0
                         r_drop_payload   <= 1'b0;
 
                         if (i_user_rx_last) begin
-                            // 这一拍已经包尾了，直接回到等新头
                             r_err_unexpected_last <= 1'b1;
                             o_dbg_err_sticky      <= 1'b1;
                             r_state               <= S_WAIT_HDR0;
@@ -341,14 +342,14 @@ module proto_video_rx_depacketizer_v1_0
                 //------------------------------------------------------------------
                 S_WAIT_HDR1: begin
                     if (i_user_rx_valid) begin
-                        r_crc32_reg   <= f_crc32_word(r_crc32_reg, i_user_rx_data);
+                        r_crc32_reg    <= f_crc32_word(r_crc32_reg, i_user_rx_data);
 
-                        r_payload_len <= i_user_rx_data[15:0];
-                        r_seq         <= i_user_rx_data[23:16];
-                        r_hdr_crc_rx  <= i_user_rx_data[31:24];
+                        r_payload_len  <= i_user_rx_data[15:0];
+                        r_seq          <= i_user_rx_data[23:16];
+                        r_hdr_crc_rx   <= i_user_rx_data[31:24];
 
-                        o_dbg_seq     <= i_user_rx_data[23:16];
-                        o_dbg_pkt_type<= r_type;
+                        o_dbg_seq      <= i_user_rx_data[23:16];
+                        o_dbg_pkt_type <= r_type;
 
                         if (i_user_rx_last) begin
                             r_err_unexpected_last <= 1'b1;
@@ -397,8 +398,6 @@ module proto_video_rx_depacketizer_v1_0
                         r_pix_fmt        <= i_user_rx_data[31:24];
 
                         o_dbg_frag_total <= i_user_rx_data[15:0];
-
-                        // 当前 header CRC 结果
                         o_dbg_hdr_crc_ok <= (w_hdr_crc_calc == r_hdr_crc_rx);
 
                         r_header_valid   <= 1'b1;
@@ -426,7 +425,6 @@ module proto_video_rx_depacketizer_v1_0
                             t_enter_drop_to_end();
                         end
                         else begin
-                            // payload length check
                             if (r_payload_len < 16'd8) begin
                                 r_err_len <= 1'b1;
                                 t_enter_drop_to_end();
@@ -516,16 +514,15 @@ module proto_video_rx_depacketizer_v1_0
                                     else begin
                                         o_word_fifo_din[33] <= 1'b0;
                                     end
-                                end
-                            end
 
-                            if (r_state != S_DROP_TO_END) begin
-                                if (r_payload_words_rcvd == (r_payload_words_target - 16'd1)) begin
-                                    r_payload_words_rcvd <= 16'd0;
-                                    r_state              <= S_WAIT_CRC;
-                                end
-                                else begin
-                                    r_payload_words_rcvd <= r_payload_words_rcvd + 16'd1;
+                                    // 只有本拍真正写成功了，才推进 payload 计数/状态
+                                    if (r_payload_words_rcvd == (r_payload_words_target - 16'd1)) begin
+                                        r_payload_words_rcvd <= 16'd0;
+                                        r_state              <= S_WAIT_CRC;
+                                    end
+                                    else begin
+                                        r_payload_words_rcvd <= r_payload_words_rcvd + 16'd1;
+                                    end
                                 end
                             end
                         end
@@ -545,7 +542,6 @@ module proto_video_rx_depacketizer_v1_0
                             r_state            <= S_DROP_TO_END;
                         end
                         else if (w_crc32_ok && r_header_valid) begin
-                            // 当前包合法，先清旧错误 sticky
                             t_clear_error_sticky_on_good_packet();
 
                             if (r_type == TYPE_VIDEO_FS) begin

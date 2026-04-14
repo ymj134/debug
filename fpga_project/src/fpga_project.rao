@@ -69,6 +69,108 @@
             <Signal capture_enable="true">dbg_rx_hdr_crc_ok</Signal>
             <Signal capture_enable="true">dbg_rx_crc32_ok</Signal>
             <Signal capture_enable="true">dbg_rx_err_sticky</Signal>
+            <Bus capture_enable="true" name="mon_hdr_ok_cnt[31:0]">
+                <Signal>mon_hdr_ok_cnt[31]</Signal>
+                <Signal>mon_hdr_ok_cnt[30]</Signal>
+                <Signal>mon_hdr_ok_cnt[29]</Signal>
+                <Signal>mon_hdr_ok_cnt[28]</Signal>
+                <Signal>mon_hdr_ok_cnt[27]</Signal>
+                <Signal>mon_hdr_ok_cnt[26]</Signal>
+                <Signal>mon_hdr_ok_cnt[25]</Signal>
+                <Signal>mon_hdr_ok_cnt[24]</Signal>
+                <Signal>mon_hdr_ok_cnt[23]</Signal>
+                <Signal>mon_hdr_ok_cnt[22]</Signal>
+                <Signal>mon_hdr_ok_cnt[21]</Signal>
+                <Signal>mon_hdr_ok_cnt[20]</Signal>
+                <Signal>mon_hdr_ok_cnt[19]</Signal>
+                <Signal>mon_hdr_ok_cnt[18]</Signal>
+                <Signal>mon_hdr_ok_cnt[17]</Signal>
+                <Signal>mon_hdr_ok_cnt[16]</Signal>
+                <Signal>mon_hdr_ok_cnt[15]</Signal>
+                <Signal>mon_hdr_ok_cnt[14]</Signal>
+                <Signal>mon_hdr_ok_cnt[13]</Signal>
+                <Signal>mon_hdr_ok_cnt[12]</Signal>
+                <Signal>mon_hdr_ok_cnt[11]</Signal>
+                <Signal>mon_hdr_ok_cnt[10]</Signal>
+                <Signal>mon_hdr_ok_cnt[9]</Signal>
+                <Signal>mon_hdr_ok_cnt[8]</Signal>
+                <Signal>mon_hdr_ok_cnt[7]</Signal>
+                <Signal>mon_hdr_ok_cnt[6]</Signal>
+                <Signal>mon_hdr_ok_cnt[5]</Signal>
+                <Signal>mon_hdr_ok_cnt[4]</Signal>
+                <Signal>mon_hdr_ok_cnt[3]</Signal>
+                <Signal>mon_hdr_ok_cnt[2]</Signal>
+                <Signal>mon_hdr_ok_cnt[1]</Signal>
+                <Signal>mon_hdr_ok_cnt[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="mon_crc_ok_cnt[31:0]">
+                <Signal>mon_crc_ok_cnt[31]</Signal>
+                <Signal>mon_crc_ok_cnt[30]</Signal>
+                <Signal>mon_crc_ok_cnt[29]</Signal>
+                <Signal>mon_crc_ok_cnt[28]</Signal>
+                <Signal>mon_crc_ok_cnt[27]</Signal>
+                <Signal>mon_crc_ok_cnt[26]</Signal>
+                <Signal>mon_crc_ok_cnt[25]</Signal>
+                <Signal>mon_crc_ok_cnt[24]</Signal>
+                <Signal>mon_crc_ok_cnt[23]</Signal>
+                <Signal>mon_crc_ok_cnt[22]</Signal>
+                <Signal>mon_crc_ok_cnt[21]</Signal>
+                <Signal>mon_crc_ok_cnt[20]</Signal>
+                <Signal>mon_crc_ok_cnt[19]</Signal>
+                <Signal>mon_crc_ok_cnt[18]</Signal>
+                <Signal>mon_crc_ok_cnt[17]</Signal>
+                <Signal>mon_crc_ok_cnt[16]</Signal>
+                <Signal>mon_crc_ok_cnt[15]</Signal>
+                <Signal>mon_crc_ok_cnt[14]</Signal>
+                <Signal>mon_crc_ok_cnt[13]</Signal>
+                <Signal>mon_crc_ok_cnt[12]</Signal>
+                <Signal>mon_crc_ok_cnt[11]</Signal>
+                <Signal>mon_crc_ok_cnt[10]</Signal>
+                <Signal>mon_crc_ok_cnt[9]</Signal>
+                <Signal>mon_crc_ok_cnt[8]</Signal>
+                <Signal>mon_crc_ok_cnt[7]</Signal>
+                <Signal>mon_crc_ok_cnt[6]</Signal>
+                <Signal>mon_crc_ok_cnt[5]</Signal>
+                <Signal>mon_crc_ok_cnt[4]</Signal>
+                <Signal>mon_crc_ok_cnt[3]</Signal>
+                <Signal>mon_crc_ok_cnt[2]</Signal>
+                <Signal>mon_crc_ok_cnt[1]</Signal>
+                <Signal>mon_crc_ok_cnt[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="mon_good_pay_cnt[31:0]">
+                <Signal>mon_good_pay_cnt[31]</Signal>
+                <Signal>mon_good_pay_cnt[30]</Signal>
+                <Signal>mon_good_pay_cnt[29]</Signal>
+                <Signal>mon_good_pay_cnt[28]</Signal>
+                <Signal>mon_good_pay_cnt[27]</Signal>
+                <Signal>mon_good_pay_cnt[26]</Signal>
+                <Signal>mon_good_pay_cnt[25]</Signal>
+                <Signal>mon_good_pay_cnt[24]</Signal>
+                <Signal>mon_good_pay_cnt[23]</Signal>
+                <Signal>mon_good_pay_cnt[22]</Signal>
+                <Signal>mon_good_pay_cnt[21]</Signal>
+                <Signal>mon_good_pay_cnt[20]</Signal>
+                <Signal>mon_good_pay_cnt[19]</Signal>
+                <Signal>mon_good_pay_cnt[18]</Signal>
+                <Signal>mon_good_pay_cnt[17]</Signal>
+                <Signal>mon_good_pay_cnt[16]</Signal>
+                <Signal>mon_good_pay_cnt[15]</Signal>
+                <Signal>mon_good_pay_cnt[14]</Signal>
+                <Signal>mon_good_pay_cnt[13]</Signal>
+                <Signal>mon_good_pay_cnt[12]</Signal>
+                <Signal>mon_good_pay_cnt[11]</Signal>
+                <Signal>mon_good_pay_cnt[10]</Signal>
+                <Signal>mon_good_pay_cnt[9]</Signal>
+                <Signal>mon_good_pay_cnt[8]</Signal>
+                <Signal>mon_good_pay_cnt[7]</Signal>
+                <Signal>mon_good_pay_cnt[6]</Signal>
+                <Signal>mon_good_pay_cnt[5]</Signal>
+                <Signal>mon_good_pay_cnt[4]</Signal>
+                <Signal>mon_good_pay_cnt[3]</Signal>
+                <Signal>mon_good_pay_cnt[2]</Signal>
+                <Signal>mon_good_pay_cnt[1]</Signal>
+                <Signal>mon_good_pay_cnt[0]</Signal>
+            </Bus>
         </SignalList>
         <Triggers>
             <Trigger index="0">
@@ -114,5 +216,5 @@
             <Expression>M0</Expression>
         </Expressions>
     </AoCore>
-    <GAO_ID>1000010010100100</GAO_ID>
+    <GAO_ID>1000001000000001</GAO_ID>
 </GAO_CONFIG>
