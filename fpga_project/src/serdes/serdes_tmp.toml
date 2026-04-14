@@ -619,8 +619,8 @@ cpll_ref_sel = 0
 
 
 [q1.ln3]
-tx_data_rate = "6.25G"
-rx_data_rate = "6.25G"
+tx_data_rate = "3.125G"
+rx_data_rate = "3.125G"
 pcs_tx_clk_src = 0
 loopBack = "OFF"
 enable = true

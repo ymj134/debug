@@ -7,7 +7,7 @@
 
 -mod_name Gowin_PLL_pixel_MOD
 -file_name gowin_pll_pixel_mod
--path C:/Users/mingj/Desktop/15k_serdes_demo/debug_serdes/colorbar/fpga_project/src/gowin_pll_pixel/
+-path E:/ymj_project/serdes/GW138K_sfp_debug/fpga_project/src/gowin_pll_pixel/
 -type PLL_ADV
 -file_type vlg
 -ssc false
@@ -28,8 +28,8 @@
 -dyn_dpa_en false
 -clkout0_bypass false
 -dyn_odiv0_sel false
--odiv0_sel 6
--odiv0_frac_sel 2
+-odiv0_sel 12
+-odiv0_frac_sel 4
 -dyn_dt0_sel false
 -clkout0_dt_dir 1
 -clkout0_dt_step 0

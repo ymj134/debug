@@ -365,16 +365,15 @@ module top
     assign sfp2_tx_disable_o = 1'b0;
     assign tx_o              = 1'b1;   // 串口预留
 
-    assign test_o[0] = tx_word_fifo_overflow_sticky;
-    assign test_o[1] = rx_word_fifo_overflow_sticky;
-    assign test_o[2] = rx_underflow_sticky_pclk;
-    assign test_o[3] = dbg_rx_err_sticky | dbg_tx_err_sticky;
-
     assign led_o[0] = cfg_pll_lock;
     assign led_o[1] = gt_pll_ok;
     assign led_o[2] = channel_up;
-    assign led_o[3] = rx_stream_enable_pclk;
-
+    assign led_o[3] = mon_good_pkt_seen_sticky;
+    
+    assign test_o[0] = tx_word_fifo_overflow_sticky;
+    assign test_o[1] = rx_word_fifo_overflow_sticky;
+    assign test_o[2] = mon_drop_seen_sticky;
+    assign test_o[3] = mon_err_seen_sticky;
     //==========================================================================
     // 11) RoraLink 时钟 / 复位骨架（沿用稳定版）
     //==========================================================================
@@ -768,6 +767,47 @@ module top
 
 
     (* keep = "true" *) wire [12:0] ila_tx_word_fifo_rnum = tx_word_fifo_rnum;
+
+    wire        mon_hdr_seen_sticky;
+    wire        mon_good_pkt_seen_sticky;
+    wire        mon_err_seen_sticky;
+    wire        mon_drop_seen_sticky;
+
+    wire [31:0] mon_hdr_ok_cnt;
+    wire [31:0] mon_crc_ok_cnt;
+    wire [31:0] mon_good_fs_cnt;
+    wire [31:0] mon_good_pay_cnt;
+    wire [31:0] mon_good_fe_cnt;
+
+    wire [7:0]  mon_last_good_type;
+    wire [7:0]  mon_last_good_seq;
+
+    rx_packet_monitor_v1_0 u_rx_packet_monitor_v1_0
+    (
+        .i_clk                  (sys_clk),
+        .i_rst_n                (~sys_rst),
+
+        .i_dbg_rx_pkt_type      (dbg_rx_pkt_type),
+        .i_dbg_rx_seq           (dbg_rx_seq),
+        .i_dbg_rx_hdr_crc_ok    (dbg_rx_hdr_crc_ok),
+        .i_dbg_rx_crc32_ok      (dbg_rx_crc32_ok),
+        .i_dbg_rx_err_sticky    (dbg_rx_err_sticky),
+        .i_dbg_rx_state         (dbg_rx_state),
+
+        .o_hdr_seen_sticky      (mon_hdr_seen_sticky),
+        .o_good_pkt_seen_sticky (mon_good_pkt_seen_sticky),
+        .o_err_seen_sticky      (mon_err_seen_sticky),
+        .o_drop_seen_sticky     (mon_drop_seen_sticky),
+
+        .o_hdr_ok_cnt           (mon_hdr_ok_cnt),
+        .o_crc_ok_cnt           (mon_crc_ok_cnt),
+        .o_good_fs_cnt          (mon_good_fs_cnt),
+        .o_good_pay_cnt         (mon_good_pay_cnt),
+        .o_good_fe_cnt          (mon_good_fe_cnt),
+
+        .o_last_good_type       (mon_last_good_type),
+        .o_last_good_seq        (mon_last_good_seq)
+    );
 
 endmodule
 

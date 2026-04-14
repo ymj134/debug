@@ -1,5 +1,5 @@
 -type SERDES
--path C:/Users/mingj/Desktop/15k_serdes_demo/debug_serdes/colorbar/fpga_project/src/serdes/
+-path E:/ymj_project/serdes/GW138K_sfp_debug/fpga_project/src/serdes/
 -file_type vlg
 -file_name serdes
 -mod_name SerDes_Top
