@@ -1,15 +1,16 @@
 `timescale 1ns / 1ps
 
 /*********************************************************************************
-* Module       : proto_video_tx_packetizer_v1_1
-* Version      : v1.1
+* Module       : proto_video_tx_packetizer_v1_2
+* Version      : v1.2
 * Description  :
-*   VIDEO-only 协议打包器（带 TX FIFO 读侧余量门控）
+*   VIDEO-only 协议打包器（带 TX FIFO 读侧余量门控 + 包间 gap）
 *
 *   新增逻辑：
-*     - 只有当读侧 FIFO 中累积到足够多的 word（Rnum 达阈值）时，
-*       才启动一个 VIDEO_PAYLOAD 包
-*     - 避免 payload 包发到一半 FIFO 见底，导致 valid 中途断开
+*     1) 只有当读侧 FIFO 中累积到足够多的 word（Rnum 达阈值）时，
+*        才启动一个 VIDEO_PAYLOAD 包
+*     2) 每个包发送完成后，插入固定包间 gap（默认 2 个 sys_clk 周期）
+*        以放松 FE -> FS 等短包边界
 *
 * FIFO 输入格式：
 *   [31:0] = packed word
@@ -18,17 +19,18 @@
 *   [35:34]= reserved
 *********************************************************************************/
 
-module proto_video_tx_packetizer_v1_1
+module proto_video_tx_packetizer_v1_2
 #(
-    parameter ACTIVE_W        = 1920,
-    parameter ACTIVE_H        = 1080,
-    parameter PAYLOAD_BYTES   = 1024,     // fixed VIDEO_PAYLOAD payload bytes
-    parameter CHANNEL_ID      = 8'd0,     // VIDEO_MAIN
-    parameter PIX_FMT         = 8'h01,    // 0x01 = RGB888
-    parameter TYPE_VIDEO_FS   = 8'h01,    // VIDEO / FRAME_START
-    parameter TYPE_VIDEO_PAY  = 8'h11,    // VIDEO / VIDEO_PAYLOAD
-    parameter TYPE_VIDEO_FE   = 8'h21,    // VIDEO / FRAME_END
-    parameter PAYLOAD_MARGIN_WORDS = 13'd64
+    parameter ACTIVE_W              = 1920,
+    parameter ACTIVE_H              = 1080,
+    parameter PAYLOAD_BYTES         = 1024,     // fixed VIDEO_PAYLOAD payload bytes
+    parameter CHANNEL_ID            = 8'd0,     // VIDEO_MAIN
+    parameter PIX_FMT               = 8'h01,    // 0x01 = RGB888
+    parameter TYPE_VIDEO_FS         = 8'h01,    // VIDEO / FRAME_START
+    parameter TYPE_VIDEO_PAY        = 8'h11,    // VIDEO / VIDEO_PAYLOAD
+    parameter TYPE_VIDEO_FE         = 8'h21,    // VIDEO / FRAME_END
+    parameter PAYLOAD_MARGIN_WORDS  = 13'd64,
+    parameter PKT_GAP_CYCLES        = 8'd2      // gap cycles between packets
 )
 (
     input               i_clk,
@@ -60,10 +62,10 @@ module proto_video_tx_packetizer_v1_1
     //--------------------------------------------------------------------------
     // 0) Local parameters
     //--------------------------------------------------------------------------
-    localparam integer PAYLOAD_WORDS   = PAYLOAD_BYTES / 4;
-    localparam integer WORDS_PER_FRAME = (ACTIVE_W * ACTIVE_H * 3) / 4;
-    localparam integer FRAG_TOTAL      = WORDS_PER_FRAME / PAYLOAD_WORDS;
-    localparam integer PAYLOAD_START_THRESHOLD = PAYLOAD_WORDS + PAYLOAD_MARGIN_WORDS;
+    localparam integer PAYLOAD_WORDS          = PAYLOAD_BYTES / 4;
+    localparam integer WORDS_PER_FRAME        = (ACTIVE_W * ACTIVE_H * 3) / 4;
+    localparam integer FRAG_TOTAL             = WORDS_PER_FRAME / PAYLOAD_WORDS;
+    localparam integer PAYLOAD_START_THRESHOLD= PAYLOAD_WORDS + PAYLOAD_MARGIN_WORDS;
 
     localparam [1:0] PKT_FRAME_START = 2'd0;
     localparam [1:0] PKT_VIDEO_PAY   = 2'd1;
@@ -77,7 +79,13 @@ module proto_video_tx_packetizer_v1_1
         S_SEND_SUB0        = 4'd4,
         S_SEND_SUB1        = 4'd5,
         S_SEND_PAYLOAD     = 4'd6,
-        S_SEND_CRC         = 4'd7;
+        S_SEND_CRC         = 4'd7,
+        S_PKT_GAP          = 4'd8;
+
+    localparam [1:0]
+        GAP_TO_WAIT_SOF         = 2'd0,
+        GAP_TO_WAIT_PAYLOAD_RDY = 2'd1,
+        GAP_TO_SEND_PREPARED    = 2'd2;
 
     //--------------------------------------------------------------------------
     // 1) Registers
@@ -99,6 +107,9 @@ module proto_video_tx_packetizer_v1_1
     reg [31:0] r_sub_w1;
 
     reg [31:0] r_crc32_reg;
+
+    reg [7:0]  r_gap_cnt;
+    reg [1:0]  r_gap_next_action;
 
     //--------------------------------------------------------------------------
     // 2) FIFO marker aliases
@@ -158,6 +169,7 @@ module proto_video_tx_packetizer_v1_1
                 tx_last_mux  = 1'b1;
             end
 
+            // gap 期间明确不发数据
             default: begin
                 tx_word_mux  = 32'd0;
                 tx_valid_mux = 1'b0;
@@ -257,8 +269,8 @@ module proto_video_tx_packetizer_v1_1
             case (pkt_kind)
                 PKT_FRAME_START: begin
                     type_local          = TYPE_VIDEO_FS;
-                    flags_local         = 8'h01;
-                    payload_len_local   = 16'd8;
+                    flags_local         = 8'h01;         // start
+                    payload_len_local   = 16'd8;         // only subheader
                     payload_words_local = 16'd0;
                 end
 
@@ -271,8 +283,8 @@ module proto_video_tx_packetizer_v1_1
 
                 default: begin
                     type_local          = TYPE_VIDEO_FE;
-                    flags_local         = 8'h02;
-                    payload_len_local   = 16'd8;
+                    flags_local         = 8'h02;         // end
+                    payload_len_local   = 16'd8;         // only subheader
                     payload_words_local = 16'd0;
                 end
             endcase
@@ -305,7 +317,19 @@ module proto_video_tx_packetizer_v1_1
     endtask
 
     //--------------------------------------------------------------------------
-    // 7) Main FSM
+    // 7) Enter gap helper
+    //--------------------------------------------------------------------------
+    task t_enter_gap;
+        input [1:0] next_action;
+        begin
+            r_gap_cnt         <= (PKT_GAP_CYCLES > 0) ? (PKT_GAP_CYCLES - 1) : 0;
+            r_gap_next_action <= next_action;
+            r_state           <= S_PKT_GAP;
+        end
+    endtask
+
+    //--------------------------------------------------------------------------
+    // 8) Main FSM
     //--------------------------------------------------------------------------
     always @(posedge i_clk or negedge i_rst_n) begin
         if (!i_rst_n) begin
@@ -326,6 +350,9 @@ module proto_video_tx_packetizer_v1_1
             r_sub_w1               <= 32'd0;
 
             r_crc32_reg            <= 32'hFFFF_FFFF;
+
+            r_gap_cnt              <= 8'd0;
+            r_gap_next_action      <= GAP_TO_WAIT_SOF;
 
             o_word_fifo_rd_en      <= 1'b0;
 
@@ -365,6 +392,7 @@ module proto_video_tx_packetizer_v1_1
                             r_state     <= S_SEND_HDR0;
                         end
                         else begin
+                            // 还没遇到帧首，就丢弃输入 FIFO 里的杂数据
                             o_dbg_err_sticky <= 1'b1;
                             o_word_fifo_rd_en <= 1'b1;
                         end
@@ -452,33 +480,61 @@ module proto_video_tx_packetizer_v1_1
                     if (tx_fire) begin
                         case (r_pkt_kind)
                             PKT_FRAME_START: begin
-                                // 准备进入第 0 个 VIDEO_PAYLOAD，但先等 FIFO 里攒够
-                                r_seq   <= r_seq + 8'd1;
-                                r_frag_id<= 16'd0;
-                                r_state <= S_WAIT_PAYLOAD_RDY;
+                                // FS 发完后，先 gap，再等待 payload ready
+                                r_seq    <= r_seq + 8'd1;
+                                r_frag_id <= 16'd0;
+                                t_enter_gap(GAP_TO_WAIT_PAYLOAD_RDY);
                             end
 
                             PKT_VIDEO_PAY: begin
                                 if (r_frag_id == (FRAG_TOTAL[15:0] - 16'd1)) begin
-                                    // 最后一片发完，进入 FRAME_END
+                                    // 最后一片 payload 发完，准备 FE，先 gap 再发 FE
                                     r_seq <= r_seq + 8'd1;
                                     t_prepare_packet(PKT_FRAME_END, r_frame_id, r_frag_id, r_seq + 8'd1);
                                     r_crc32_reg <= 32'hFFFF_FFFF;
-                                    r_state <= S_SEND_HDR0;
+                                    t_enter_gap(GAP_TO_SEND_PREPARED);
                                 end
                                 else begin
-                                    // 下一个 VIDEO_PAYLOAD，先攒够 FIFO 再发
+                                    // 下一片 payload，先 gap 再等待 payload ready
                                     r_frag_id <= r_frag_id + 16'd1;
                                     r_seq     <= r_seq + 8'd1;
-                                    r_state   <= S_WAIT_PAYLOAD_RDY;
+                                    t_enter_gap(GAP_TO_WAIT_PAYLOAD_RDY);
                                 end
                             end
 
                             default: begin
-                                // FRAME_END 发完，一帧结束
+                                // FE 发完，一帧结束，先 gap 再回 WAIT_SOF
                                 r_seq      <= r_seq + 8'd1;
                                 r_frame_id <= r_frame_id + 16'd1;
-                                r_state    <= S_WAIT_SOF;
+                                t_enter_gap(GAP_TO_WAIT_SOF);
+                            end
+                        endcase
+                    end
+                end
+
+                // --------------------------------------------------------------
+                // 包间 gap：明确拉低 valid，等若干拍后再开始下一个包
+                // --------------------------------------------------------------
+                S_PKT_GAP: begin
+                    if (r_gap_cnt != 0) begin
+                        r_gap_cnt <= r_gap_cnt - 8'd1;
+                    end
+                    else begin
+                        case (r_gap_next_action)
+                            GAP_TO_WAIT_SOF: begin
+                                r_state <= S_WAIT_SOF;
+                            end
+
+                            GAP_TO_WAIT_PAYLOAD_RDY: begin
+                                r_state <= S_WAIT_PAYLOAD_RDY;
+                            end
+
+                            GAP_TO_SEND_PREPARED: begin
+                                r_state <= S_SEND_HDR0;
+                            end
+
+                            default: begin
+                                r_state <= S_WAIT_SOF;
                             end
                         endcase
                     end

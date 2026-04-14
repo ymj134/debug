@@ -1,0 +1,353 @@
+<?xml version="1" encoding="UTF-8"?>
+<GAO_CONFIG>
+    <Version>3.0</Version>
+    <Mode>Standard</Mode>
+    <AoCore index="0" sample_clock="sys_clk" trig_type="0" storage_depth="1024" window_num="1" capture_amount="1024" implementation="0" trigger_pos="0" module_name="top" force_trigger_by_falling_edge="false" capture_init_data_enabled="false">
+        <SignalList>
+            <Bus capture_enable="true" name="proto_tx_user_data[31:0]">
+                <Signal>proto_tx_user_data[31]</Signal>
+                <Signal>proto_tx_user_data[30]</Signal>
+                <Signal>proto_tx_user_data[29]</Signal>
+                <Signal>proto_tx_user_data[28]</Signal>
+                <Signal>proto_tx_user_data[27]</Signal>
+                <Signal>proto_tx_user_data[26]</Signal>
+                <Signal>proto_tx_user_data[25]</Signal>
+                <Signal>proto_tx_user_data[24]</Signal>
+                <Signal>proto_tx_user_data[23]</Signal>
+                <Signal>proto_tx_user_data[22]</Signal>
+                <Signal>proto_tx_user_data[21]</Signal>
+                <Signal>proto_tx_user_data[20]</Signal>
+                <Signal>proto_tx_user_data[19]</Signal>
+                <Signal>proto_tx_user_data[18]</Signal>
+                <Signal>proto_tx_user_data[17]</Signal>
+                <Signal>proto_tx_user_data[16]</Signal>
+                <Signal>proto_tx_user_data[15]</Signal>
+                <Signal>proto_tx_user_data[14]</Signal>
+                <Signal>proto_tx_user_data[13]</Signal>
+                <Signal>proto_tx_user_data[12]</Signal>
+                <Signal>proto_tx_user_data[11]</Signal>
+                <Signal>proto_tx_user_data[10]</Signal>
+                <Signal>proto_tx_user_data[9]</Signal>
+                <Signal>proto_tx_user_data[8]</Signal>
+                <Signal>proto_tx_user_data[7]</Signal>
+                <Signal>proto_tx_user_data[6]</Signal>
+                <Signal>proto_tx_user_data[5]</Signal>
+                <Signal>proto_tx_user_data[4]</Signal>
+                <Signal>proto_tx_user_data[3]</Signal>
+                <Signal>proto_tx_user_data[2]</Signal>
+                <Signal>proto_tx_user_data[1]</Signal>
+                <Signal>proto_tx_user_data[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">proto_tx_user_valid</Signal>
+            <Signal capture_enable="true">proto_tx_user_last</Signal>
+            <Bus capture_enable="true" name="dbg_tx_pkt_type[7:0]">
+                <Signal>dbg_tx_pkt_type[7]</Signal>
+                <Signal>dbg_tx_pkt_type[6]</Signal>
+                <Signal>dbg_tx_pkt_type[5]</Signal>
+                <Signal>dbg_tx_pkt_type[4]</Signal>
+                <Signal>dbg_tx_pkt_type[3]</Signal>
+                <Signal>dbg_tx_pkt_type[2]</Signal>
+                <Signal>dbg_tx_pkt_type[1]</Signal>
+                <Signal>dbg_tx_pkt_type[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="dbg_tx_seq[7:0]">
+                <Signal>dbg_tx_seq[7]</Signal>
+                <Signal>dbg_tx_seq[6]</Signal>
+                <Signal>dbg_tx_seq[5]</Signal>
+                <Signal>dbg_tx_seq[4]</Signal>
+                <Signal>dbg_tx_seq[3]</Signal>
+                <Signal>dbg_tx_seq[2]</Signal>
+                <Signal>dbg_tx_seq[1]</Signal>
+                <Signal>dbg_tx_seq[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="user_rx_data[31:0]">
+                <Signal>user_rx_data[31]</Signal>
+                <Signal>user_rx_data[30]</Signal>
+                <Signal>user_rx_data[29]</Signal>
+                <Signal>user_rx_data[28]</Signal>
+                <Signal>user_rx_data[27]</Signal>
+                <Signal>user_rx_data[26]</Signal>
+                <Signal>user_rx_data[25]</Signal>
+                <Signal>user_rx_data[24]</Signal>
+                <Signal>user_rx_data[23]</Signal>
+                <Signal>user_rx_data[22]</Signal>
+                <Signal>user_rx_data[21]</Signal>
+                <Signal>user_rx_data[20]</Signal>
+                <Signal>user_rx_data[19]</Signal>
+                <Signal>user_rx_data[18]</Signal>
+                <Signal>user_rx_data[17]</Signal>
+                <Signal>user_rx_data[16]</Signal>
+                <Signal>user_rx_data[15]</Signal>
+                <Signal>user_rx_data[14]</Signal>
+                <Signal>user_rx_data[13]</Signal>
+                <Signal>user_rx_data[12]</Signal>
+                <Signal>user_rx_data[11]</Signal>
+                <Signal>user_rx_data[10]</Signal>
+                <Signal>user_rx_data[9]</Signal>
+                <Signal>user_rx_data[8]</Signal>
+                <Signal>user_rx_data[7]</Signal>
+                <Signal>user_rx_data[6]</Signal>
+                <Signal>user_rx_data[5]</Signal>
+                <Signal>user_rx_data[4]</Signal>
+                <Signal>user_rx_data[3]</Signal>
+                <Signal>user_rx_data[2]</Signal>
+                <Signal>user_rx_data[1]</Signal>
+                <Signal>user_rx_data[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">user_rx_valid</Signal>
+            <Signal capture_enable="true">user_rx_last</Signal>
+            <Bus capture_enable="true" name="dbg_rx_state[3:0]">
+                <Signal>dbg_rx_state[3]</Signal>
+                <Signal>dbg_rx_state[2]</Signal>
+                <Signal>dbg_rx_state[1]</Signal>
+                <Signal>dbg_rx_state[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="dbg_rx_pkt_type[7:0]">
+                <Signal>dbg_rx_pkt_type[7]</Signal>
+                <Signal>dbg_rx_pkt_type[6]</Signal>
+                <Signal>dbg_rx_pkt_type[5]</Signal>
+                <Signal>dbg_rx_pkt_type[4]</Signal>
+                <Signal>dbg_rx_pkt_type[3]</Signal>
+                <Signal>dbg_rx_pkt_type[2]</Signal>
+                <Signal>dbg_rx_pkt_type[1]</Signal>
+                <Signal>dbg_rx_pkt_type[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="dbg_rx_seq[7:0]">
+                <Signal>dbg_rx_seq[7]</Signal>
+                <Signal>dbg_rx_seq[6]</Signal>
+                <Signal>dbg_rx_seq[5]</Signal>
+                <Signal>dbg_rx_seq[4]</Signal>
+                <Signal>dbg_rx_seq[3]</Signal>
+                <Signal>dbg_rx_seq[2]</Signal>
+                <Signal>dbg_rx_seq[1]</Signal>
+                <Signal>dbg_rx_seq[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">dbg_rx_hdr_crc_ok</Signal>
+            <Signal capture_enable="true">dbg_rx_crc32_ok</Signal>
+            <Bus capture_enable="true" name="u_proto_video_rx_depacketizer_v1_0/r_magic[15:0]">
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[15]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[14]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[13]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[12]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[11]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[10]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[9]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[8]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[7]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[6]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[5]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[4]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[3]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[2]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[1]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_magic[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_rx_depacketizer_v1_0/r_type[7:0]">
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_type[7]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_type[6]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_type[5]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_type[4]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_type[3]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_type[2]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_type[1]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_type[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_rx_depacketizer_v1_0/r_payload_len[15:0]">
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[15]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[14]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[13]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[12]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[11]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[10]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[9]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[8]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[7]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[6]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[5]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[4]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[3]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[2]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[1]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_payload_len[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_rx_depacketizer_v1_0/r_hdr_crc_rx[7:0]">
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_hdr_crc_rx[7]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_hdr_crc_rx[6]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_hdr_crc_rx[5]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_hdr_crc_rx[4]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_hdr_crc_rx[3]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_hdr_crc_rx[2]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_hdr_crc_rx[1]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_hdr_crc_rx[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_rx_depacketizer_v1_0/w_hdr_crc_calc[7:0]">
+                <Signal>u_proto_video_rx_depacketizer_v1_0/w_hdr_crc_calc[7]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/w_hdr_crc_calc[6]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/w_hdr_crc_calc[5]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/w_hdr_crc_calc[4]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/w_hdr_crc_calc[3]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/w_hdr_crc_calc[2]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/w_hdr_crc_calc[1]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/w_hdr_crc_calc[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_rx_depacketizer_v1_0/r_frame_id[15:0]">
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[15]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[14]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[13]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[12]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[11]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[10]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[9]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[8]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[7]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[6]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[5]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[4]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[3]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[2]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[1]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frame_id[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_rx_depacketizer_v1_0/r_frag_id[15:0]">
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[15]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[14]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[13]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[12]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[11]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[10]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[9]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[8]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[7]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[6]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[5]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[4]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[3]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[2]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[1]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_id[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">u_proto_video_rx_depacketizer_v1_0/r_err_len</Signal>
+            <Bus capture_enable="true" name="u_proto_video_rx_depacketizer_v1_0/r_frag_total[15:0]">
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[15]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[14]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[13]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[12]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[11]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[10]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[9]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[8]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[7]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[6]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[5]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[4]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[3]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[2]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[1]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_frag_total[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_rx_depacketizer_v1_0/r_flags[7:0]">
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_flags[7]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_flags[6]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_flags[5]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_flags[4]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_flags[3]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_flags[2]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_flags[1]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_flags[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_rx_depacketizer_v1_0/r_pix_fmt[7:0]">
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_pix_fmt[7]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_pix_fmt[6]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_pix_fmt[5]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_pix_fmt[4]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_pix_fmt[3]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_pix_fmt[2]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_pix_fmt[1]</Signal>
+                <Signal>u_proto_video_rx_depacketizer_v1_0/r_pix_fmt[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">u_proto_video_rx_depacketizer_v1_0/r_err_pixfmt</Signal>
+            <Signal capture_enable="true">u_proto_video_rx_depacketizer_v1_0/r_err_unexpected_last</Signal>
+            <Signal capture_enable="true">u_proto_video_rx_depacketizer_v1_0/r_err_missing_last</Signal>
+            <Signal capture_enable="true">u_proto_video_rx_depacketizer_v1_0/r_err_frag</Signal>
+        </SignalList>
+        <Triggers>
+            <Trigger index="0">
+                <SignalList>
+                    <Bus restorename="dbg_tx_pkt_type[7:0]">
+                        <Signal>dbg_tx_pkt_type[7]</Signal>
+                        <Signal>dbg_tx_pkt_type[6]</Signal>
+                        <Signal>dbg_tx_pkt_type[5]</Signal>
+                        <Signal>dbg_tx_pkt_type[4]</Signal>
+                        <Signal>dbg_tx_pkt_type[3]</Signal>
+                        <Signal>dbg_tx_pkt_type[2]</Signal>
+                        <Signal>dbg_tx_pkt_type[1]</Signal>
+                        <Signal>dbg_tx_pkt_type[0]</Signal>
+                    </Bus>
+                </SignalList>
+            </Trigger>
+            <Trigger index="1">
+                <SignalList>
+                    <Signal>proto_tx_user_last</Signal>
+                </SignalList>
+            </Trigger>
+            <Trigger index="2">
+                <SignalList>
+                    <Bus restorename="dbg_rx_pkt_type[7:0]">
+                        <Signal>dbg_rx_pkt_type[7]</Signal>
+                        <Signal>dbg_rx_pkt_type[6]</Signal>
+                        <Signal>dbg_rx_pkt_type[5]</Signal>
+                        <Signal>dbg_rx_pkt_type[4]</Signal>
+                        <Signal>dbg_rx_pkt_type[3]</Signal>
+                        <Signal>dbg_rx_pkt_type[2]</Signal>
+                        <Signal>dbg_rx_pkt_type[1]</Signal>
+                        <Signal>dbg_rx_pkt_type[0]</Signal>
+                    </Bus>
+                </SignalList>
+            </Trigger>
+            <Trigger index="3">
+                <SignalList>
+                    <Bus restorename="dbg_rx_state[3:0]">
+                        <Signal>dbg_rx_state[3]</Signal>
+                        <Signal>dbg_rx_state[2]</Signal>
+                        <Signal>dbg_rx_state[1]</Signal>
+                        <Signal>dbg_rx_state[0]</Signal>
+                    </Bus>
+                </SignalList>
+            </Trigger>
+            <Trigger index="4"/>
+            <Trigger index="5"/>
+            <Trigger index="6"/>
+            <Trigger index="7"/>
+            <Trigger index="8"/>
+            <Trigger index="9"/>
+            <Trigger index="10"/>
+            <Trigger index="11"/>
+            <Trigger index="12"/>
+            <Trigger index="13"/>
+            <Trigger index="14"/>
+            <Trigger index="15"/>
+        </Triggers>
+        <MatchUnits>
+            <MatchUnit index="0" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="00100001" value1="00000000" trigger="0"/>
+            <MatchUnit index="1" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="1" value1="0" trigger="1"/>
+            <MatchUnit index="2" enabled="1" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="00000001" value1="00000000" trigger="2"/>
+            <MatchUnit index="3" enabled="1" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="0110" value1="0000" trigger="3"/>
+            <MatchUnit index="4" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="5" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="6" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="7" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="8" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="9" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="10" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="11" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="12" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="13" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="14" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="15" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+        </MatchUnits>
+        <Expressions type="Static">
+            <Expression>M2&amp;M3</Expression>
+        </Expressions>
+    </AoCore>
+    <GAO_ID>1100010101110011</GAO_ID>
+</GAO_CONFIG>

@@ -601,7 +601,7 @@ module top
     //==========================================================================
     // 15) 协议 TX / RX
     //==========================================================================
-    proto_video_tx_packetizer_v1_1
+    proto_video_tx_packetizer_v1_2
     #(
         .ACTIVE_W        (1920),
         .ACTIVE_H        (1080),
@@ -612,7 +612,7 @@ module top
         .TYPE_VIDEO_PAY  (8'h11),
         .TYPE_VIDEO_FE   (8'h21)
     )
-    u_proto_video_tx_packetizer_v1_1
+    u_proto_video_tx_packetizer_v1_2
     (
         .i_clk              (sys_clk),
         .i_rst_n            (~sys_rst),

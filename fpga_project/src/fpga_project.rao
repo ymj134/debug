@@ -242,26 +242,7 @@
                 <Signal>u_proto_video_tx_packetizer_v1_1/r_state[1]</Signal>
                 <Signal>u_proto_video_tx_packetizer_v1_1/r_state[0]</Signal>
             </Bus>
-            <Bus capture_enable="false" name="dbg_rx_state[3:0]">
-                <Signal>dbg_rx_state[3]</Signal>
-                <Signal>dbg_rx_state[2]</Signal>
-                <Signal>dbg_rx_state[1]</Signal>
-                <Signal>dbg_rx_state[0]</Signal>
-            </Bus>
-            <Signal capture_enable="false">user_rx_last</Signal>
-            <Bus capture_enable="false" name="dbg_rx_pkt_type[7:0]">
-                <Signal>dbg_rx_pkt_type[7]</Signal>
-                <Signal>dbg_rx_pkt_type[6]</Signal>
-                <Signal>dbg_rx_pkt_type[5]</Signal>
-                <Signal>dbg_rx_pkt_type[4]</Signal>
-                <Signal>dbg_rx_pkt_type[3]</Signal>
-                <Signal>dbg_rx_pkt_type[2]</Signal>
-                <Signal>dbg_rx_pkt_type[1]</Signal>
-                <Signal>dbg_rx_pkt_type[0]</Signal>
-            </Bus>
-            <Signal capture_enable="false">dbg_rx_hdr_crc_ok</Signal>
-            <Signal capture_enable="false">dbg_rx_err_sticky</Signal>
-            <Bus capture_enable="false" name="mon_good_fe_cnt[31:0]">
+            <Bus capture_enable="true" name="mon_good_fe_cnt[31:0]">
                 <Signal>mon_good_fe_cnt[31]</Signal>
                 <Signal>mon_good_fe_cnt[30]</Signal>
                 <Signal>mon_good_fe_cnt[29]</Signal>
@@ -295,7 +276,7 @@
                 <Signal>mon_good_fe_cnt[1]</Signal>
                 <Signal>mon_good_fe_cnt[0]</Signal>
             </Bus>
-            <Bus capture_enable="false" name="mon_good_fs_cnt[31:0]">
+            <Bus capture_enable="true" name="mon_good_fs_cnt[31:0]">
                 <Signal>mon_good_fs_cnt[31]</Signal>
                 <Signal>mon_good_fs_cnt[30]</Signal>
                 <Signal>mon_good_fs_cnt[29]</Signal>
@@ -329,43 +310,9 @@
                 <Signal>mon_good_fs_cnt[1]</Signal>
                 <Signal>mon_good_fs_cnt[0]</Signal>
             </Bus>
-            <Signal capture_enable="false">frm_frame_ok_sticky</Signal>
-            <Signal capture_enable="false">frm_frame_err_sticky</Signal>
-            <Bus capture_enable="false" name="frm_bad_frame_cnt[31:0]">
-                <Signal>frm_bad_frame_cnt[31]</Signal>
-                <Signal>frm_bad_frame_cnt[30]</Signal>
-                <Signal>frm_bad_frame_cnt[29]</Signal>
-                <Signal>frm_bad_frame_cnt[28]</Signal>
-                <Signal>frm_bad_frame_cnt[27]</Signal>
-                <Signal>frm_bad_frame_cnt[26]</Signal>
-                <Signal>frm_bad_frame_cnt[25]</Signal>
-                <Signal>frm_bad_frame_cnt[24]</Signal>
-                <Signal>frm_bad_frame_cnt[23]</Signal>
-                <Signal>frm_bad_frame_cnt[22]</Signal>
-                <Signal>frm_bad_frame_cnt[21]</Signal>
-                <Signal>frm_bad_frame_cnt[20]</Signal>
-                <Signal>frm_bad_frame_cnt[19]</Signal>
-                <Signal>frm_bad_frame_cnt[18]</Signal>
-                <Signal>frm_bad_frame_cnt[17]</Signal>
-                <Signal>frm_bad_frame_cnt[16]</Signal>
-                <Signal>frm_bad_frame_cnt[15]</Signal>
-                <Signal>frm_bad_frame_cnt[14]</Signal>
-                <Signal>frm_bad_frame_cnt[13]</Signal>
-                <Signal>frm_bad_frame_cnt[12]</Signal>
-                <Signal>frm_bad_frame_cnt[11]</Signal>
-                <Signal>frm_bad_frame_cnt[10]</Signal>
-                <Signal>frm_bad_frame_cnt[9]</Signal>
-                <Signal>frm_bad_frame_cnt[8]</Signal>
-                <Signal>frm_bad_frame_cnt[7]</Signal>
-                <Signal>frm_bad_frame_cnt[6]</Signal>
-                <Signal>frm_bad_frame_cnt[5]</Signal>
-                <Signal>frm_bad_frame_cnt[4]</Signal>
-                <Signal>frm_bad_frame_cnt[3]</Signal>
-                <Signal>frm_bad_frame_cnt[2]</Signal>
-                <Signal>frm_bad_frame_cnt[1]</Signal>
-                <Signal>frm_bad_frame_cnt[0]</Signal>
-            </Bus>
-            <Bus capture_enable="false" name="frm_good_frame_cnt[31:0]">
+            <Signal capture_enable="true">frm_frame_ok_sticky</Signal>
+            <Signal capture_enable="true">frm_frame_err_sticky</Signal>
+            <Bus capture_enable="true" name="frm_good_frame_cnt[31:0]">
                 <Signal>frm_good_frame_cnt[31]</Signal>
                 <Signal>frm_good_frame_cnt[30]</Signal>
                 <Signal>frm_good_frame_cnt[29]</Signal>
@@ -399,7 +346,41 @@
                 <Signal>frm_good_frame_cnt[1]</Signal>
                 <Signal>frm_good_frame_cnt[0]</Signal>
             </Bus>
-            <Bus capture_enable="false" name="mon_good_pay_cnt[31:0]">
+            <Bus capture_enable="true" name="frm_bad_frame_cnt[31:0]">
+                <Signal>frm_bad_frame_cnt[31]</Signal>
+                <Signal>frm_bad_frame_cnt[30]</Signal>
+                <Signal>frm_bad_frame_cnt[29]</Signal>
+                <Signal>frm_bad_frame_cnt[28]</Signal>
+                <Signal>frm_bad_frame_cnt[27]</Signal>
+                <Signal>frm_bad_frame_cnt[26]</Signal>
+                <Signal>frm_bad_frame_cnt[25]</Signal>
+                <Signal>frm_bad_frame_cnt[24]</Signal>
+                <Signal>frm_bad_frame_cnt[23]</Signal>
+                <Signal>frm_bad_frame_cnt[22]</Signal>
+                <Signal>frm_bad_frame_cnt[21]</Signal>
+                <Signal>frm_bad_frame_cnt[20]</Signal>
+                <Signal>frm_bad_frame_cnt[19]</Signal>
+                <Signal>frm_bad_frame_cnt[18]</Signal>
+                <Signal>frm_bad_frame_cnt[17]</Signal>
+                <Signal>frm_bad_frame_cnt[16]</Signal>
+                <Signal>frm_bad_frame_cnt[15]</Signal>
+                <Signal>frm_bad_frame_cnt[14]</Signal>
+                <Signal>frm_bad_frame_cnt[13]</Signal>
+                <Signal>frm_bad_frame_cnt[12]</Signal>
+                <Signal>frm_bad_frame_cnt[11]</Signal>
+                <Signal>frm_bad_frame_cnt[10]</Signal>
+                <Signal>frm_bad_frame_cnt[9]</Signal>
+                <Signal>frm_bad_frame_cnt[8]</Signal>
+                <Signal>frm_bad_frame_cnt[7]</Signal>
+                <Signal>frm_bad_frame_cnt[6]</Signal>
+                <Signal>frm_bad_frame_cnt[5]</Signal>
+                <Signal>frm_bad_frame_cnt[4]</Signal>
+                <Signal>frm_bad_frame_cnt[3]</Signal>
+                <Signal>frm_bad_frame_cnt[2]</Signal>
+                <Signal>frm_bad_frame_cnt[1]</Signal>
+                <Signal>frm_bad_frame_cnt[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="mon_good_pay_cnt[31:0]">
                 <Signal>mon_good_pay_cnt[31]</Signal>
                 <Signal>mon_good_pay_cnt[30]</Signal>
                 <Signal>mon_good_pay_cnt[29]</Signal>
@@ -433,41 +414,7 @@
                 <Signal>mon_good_pay_cnt[1]</Signal>
                 <Signal>mon_good_pay_cnt[0]</Signal>
             </Bus>
-            <Bus capture_enable="false" name="mon_crc_ok_cnt[31:0]">
-                <Signal>mon_crc_ok_cnt[31]</Signal>
-                <Signal>mon_crc_ok_cnt[30]</Signal>
-                <Signal>mon_crc_ok_cnt[29]</Signal>
-                <Signal>mon_crc_ok_cnt[28]</Signal>
-                <Signal>mon_crc_ok_cnt[27]</Signal>
-                <Signal>mon_crc_ok_cnt[26]</Signal>
-                <Signal>mon_crc_ok_cnt[25]</Signal>
-                <Signal>mon_crc_ok_cnt[24]</Signal>
-                <Signal>mon_crc_ok_cnt[23]</Signal>
-                <Signal>mon_crc_ok_cnt[22]</Signal>
-                <Signal>mon_crc_ok_cnt[21]</Signal>
-                <Signal>mon_crc_ok_cnt[20]</Signal>
-                <Signal>mon_crc_ok_cnt[19]</Signal>
-                <Signal>mon_crc_ok_cnt[18]</Signal>
-                <Signal>mon_crc_ok_cnt[17]</Signal>
-                <Signal>mon_crc_ok_cnt[16]</Signal>
-                <Signal>mon_crc_ok_cnt[15]</Signal>
-                <Signal>mon_crc_ok_cnt[14]</Signal>
-                <Signal>mon_crc_ok_cnt[13]</Signal>
-                <Signal>mon_crc_ok_cnt[12]</Signal>
-                <Signal>mon_crc_ok_cnt[11]</Signal>
-                <Signal>mon_crc_ok_cnt[10]</Signal>
-                <Signal>mon_crc_ok_cnt[9]</Signal>
-                <Signal>mon_crc_ok_cnt[8]</Signal>
-                <Signal>mon_crc_ok_cnt[7]</Signal>
-                <Signal>mon_crc_ok_cnt[6]</Signal>
-                <Signal>mon_crc_ok_cnt[5]</Signal>
-                <Signal>mon_crc_ok_cnt[4]</Signal>
-                <Signal>mon_crc_ok_cnt[3]</Signal>
-                <Signal>mon_crc_ok_cnt[2]</Signal>
-                <Signal>mon_crc_ok_cnt[1]</Signal>
-                <Signal>mon_crc_ok_cnt[0]</Signal>
-            </Bus>
-            <Bus capture_enable="false" name="mon_hdr_ok_cnt[31:0]">
+            <Bus capture_enable="true" name="mon_hdr_ok_cnt[31:0]">
                 <Signal>mon_hdr_ok_cnt[31]</Signal>
                 <Signal>mon_hdr_ok_cnt[30]</Signal>
                 <Signal>mon_hdr_ok_cnt[29]</Signal>
@@ -501,6 +448,59 @@
                 <Signal>mon_hdr_ok_cnt[1]</Signal>
                 <Signal>mon_hdr_ok_cnt[0]</Signal>
             </Bus>
+            <Bus capture_enable="true" name="mon_crc_ok_cnt[31:0]">
+                <Signal>mon_crc_ok_cnt[31]</Signal>
+                <Signal>mon_crc_ok_cnt[30]</Signal>
+                <Signal>mon_crc_ok_cnt[29]</Signal>
+                <Signal>mon_crc_ok_cnt[28]</Signal>
+                <Signal>mon_crc_ok_cnt[27]</Signal>
+                <Signal>mon_crc_ok_cnt[26]</Signal>
+                <Signal>mon_crc_ok_cnt[25]</Signal>
+                <Signal>mon_crc_ok_cnt[24]</Signal>
+                <Signal>mon_crc_ok_cnt[23]</Signal>
+                <Signal>mon_crc_ok_cnt[22]</Signal>
+                <Signal>mon_crc_ok_cnt[21]</Signal>
+                <Signal>mon_crc_ok_cnt[20]</Signal>
+                <Signal>mon_crc_ok_cnt[19]</Signal>
+                <Signal>mon_crc_ok_cnt[18]</Signal>
+                <Signal>mon_crc_ok_cnt[17]</Signal>
+                <Signal>mon_crc_ok_cnt[16]</Signal>
+                <Signal>mon_crc_ok_cnt[15]</Signal>
+                <Signal>mon_crc_ok_cnt[14]</Signal>
+                <Signal>mon_crc_ok_cnt[13]</Signal>
+                <Signal>mon_crc_ok_cnt[12]</Signal>
+                <Signal>mon_crc_ok_cnt[11]</Signal>
+                <Signal>mon_crc_ok_cnt[10]</Signal>
+                <Signal>mon_crc_ok_cnt[9]</Signal>
+                <Signal>mon_crc_ok_cnt[8]</Signal>
+                <Signal>mon_crc_ok_cnt[7]</Signal>
+                <Signal>mon_crc_ok_cnt[6]</Signal>
+                <Signal>mon_crc_ok_cnt[5]</Signal>
+                <Signal>mon_crc_ok_cnt[4]</Signal>
+                <Signal>mon_crc_ok_cnt[3]</Signal>
+                <Signal>mon_crc_ok_cnt[2]</Signal>
+                <Signal>mon_crc_ok_cnt[1]</Signal>
+                <Signal>mon_crc_ok_cnt[0]</Signal>
+            </Bus>
+            <Bus capture_enable="false" name="dbg_rx_state[3:0]">
+                <Signal>dbg_rx_state[3]</Signal>
+                <Signal>dbg_rx_state[2]</Signal>
+                <Signal>dbg_rx_state[1]</Signal>
+                <Signal>dbg_rx_state[0]</Signal>
+            </Bus>
+            <Signal capture_enable="false">user_rx_last</Signal>
+            <Bus capture_enable="false" name="dbg_rx_pkt_type[7:0]">
+                <Signal>dbg_rx_pkt_type[7]</Signal>
+                <Signal>dbg_rx_pkt_type[6]</Signal>
+                <Signal>dbg_rx_pkt_type[5]</Signal>
+                <Signal>dbg_rx_pkt_type[4]</Signal>
+                <Signal>dbg_rx_pkt_type[3]</Signal>
+                <Signal>dbg_rx_pkt_type[2]</Signal>
+                <Signal>dbg_rx_pkt_type[1]</Signal>
+                <Signal>dbg_rx_pkt_type[0]</Signal>
+            </Bus>
+            <Signal capture_enable="false">dbg_rx_hdr_crc_ok</Signal>
+            <Signal capture_enable="false">dbg_rx_err_sticky</Signal>
             <Signal capture_enable="false">dbg_rx_crc32_ok</Signal>
             <Bus capture_enable="false" name="dbg_rx_seq[7:0]">
                 <Signal>dbg_rx_seq[7]</Signal>
