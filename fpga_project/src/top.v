@@ -809,6 +809,38 @@ module top
         .o_last_good_seq        (mon_last_good_seq)
     );
 
+    rx_frame_monitor_v1_0 u_rx_frame_monitor_v1_0(
+    .i_clk                  (sys_clk),
+    .i_rst_n                (~sys_rst),
+
+    .i_dbg_rx_pkt_type      (dbg_rx_pkt_type),
+    .i_dbg_rx_seq           (dbg_rx_seq),
+    .i_dbg_rx_frame_id      (dbg_rx_frame_id),
+    .i_dbg_rx_frag_id       (dbg_rx_frag_id),
+    .i_dbg_rx_frag_total    (dbg_rx_frag_total),
+    .i_dbg_rx_crc32_ok      (dbg_rx_crc32_ok),
+
+    .o_frame_ok_sticky      (mon_frame_ok_sticky),
+    .o_frame_err_sticky     (mon_frame_err_sticky),
+    .o_frame_id_jump_sticky (mon_frame_id_jump_sticky),
+
+    .o_in_frame             (mon_in_frame),
+    .o_frame_bad            (mon_frame_bad),
+
+    .o_good_frame_cnt       (mon_good_frame_cnt),
+    .o_bad_frame_cnt        (mon_bad_frame_cnt),
+
+    .o_last_good_frame_id   (mon_last_good_frame_id),
+    .o_last_bad_frame_id    (mon_last_bad_frame_id),
+
+    .o_last_good_seq        (mon_last_good_seq),
+    .o_last_bad_seq         (mon_last_bad_seq),
+
+    .o_cur_frame_id         (mon_cur_frame_id),
+    .o_expected_frag_id     (mon_expected_frag_id),
+    .o_last_seen_frag_id    (mon_last_seen_frag_id)
+    );
+
 endmodule
 
 
