@@ -782,7 +782,7 @@ module top
     wire [7:0]  mon_last_good_type;
     wire [7:0]  mon_last_good_seq;
 
-    rx_packet_monitor_v1_0 u_rx_packet_monitor_v1_0
+    rx_packet_monitor_v1_1 u_rx_packet_monitor_v1_1
     (
         .i_clk                  (sys_clk),
         .i_rst_n                (~sys_rst),
@@ -832,7 +832,7 @@ module top
     wire [15:0] frm_expected_frag_id;
     wire [15:0] frm_last_seen_frag_id;
 
-    rx_frame_monitor_v1_0 u_rx_frame_monitor_v1_0(
+    rx_frame_monitor_v1_1 u_rx_frame_monitor_v1_1(
     .i_clk                  (sys_clk),
     .i_rst_n                (~sys_rst),
 

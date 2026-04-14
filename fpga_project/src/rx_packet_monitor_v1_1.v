@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-module rx_packet_monitor_v1_0
+module rx_packet_monitor_v1_1
 (
     input               i_clk,
     input               i_rst_n,
@@ -27,8 +27,17 @@ module rx_packet_monitor_v1_0
     output  reg [7:0]   o_last_good_seq
 );
 
+    reg r_hdr_crc_ok_d;
+    reg r_crc32_ok_d;
+
+    wire w_hdr_crc_ok_pulse = i_dbg_rx_hdr_crc_ok & ~r_hdr_crc_ok_d;
+    wire w_crc32_ok_pulse   = i_dbg_rx_crc32_ok   & ~r_crc32_ok_d;
+
     always @(posedge i_clk or negedge i_rst_n) begin
         if (!i_rst_n) begin
+            r_hdr_crc_ok_d         <= 1'b0;
+            r_crc32_ok_d           <= 1'b0;
+
             o_hdr_seen_sticky      <= 1'b0;
             o_good_pkt_seen_sticky <= 1'b0;
             o_err_seen_sticky      <= 1'b0;
@@ -44,12 +53,15 @@ module rx_packet_monitor_v1_0
             o_last_good_seq        <= 8'd0;
         end
         else begin
-            if (i_dbg_rx_hdr_crc_ok) begin
+            r_hdr_crc_ok_d <= i_dbg_rx_hdr_crc_ok;
+            r_crc32_ok_d   <= i_dbg_rx_crc32_ok;
+
+            if (w_hdr_crc_ok_pulse) begin
                 o_hdr_seen_sticky <= 1'b1;
                 o_hdr_ok_cnt      <= o_hdr_ok_cnt + 32'd1;
             end
 
-            if (i_dbg_rx_crc32_ok) begin
+            if (w_crc32_ok_pulse) begin
                 o_good_pkt_seen_sticky <= 1'b1;
                 o_crc_ok_cnt           <= o_crc_ok_cnt + 32'd1;
                 o_last_good_type       <= i_dbg_rx_pkt_type;

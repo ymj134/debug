@@ -4,49 +4,252 @@
     <Mode>Standard</Mode>
     <AoCore index="0" sample_clock="sys_clk" trig_type="0" storage_depth="1024" window_num="1" capture_amount="1024" implementation="0" trigger_pos="0" module_name="top" force_trigger_by_falling_edge="false" capture_init_data_enabled="false">
         <SignalList>
-            <Bus capture_enable="true" name="user_rx_data[31:0]">
-                <Signal>user_rx_data[31]</Signal>
-                <Signal>user_rx_data[30]</Signal>
-                <Signal>user_rx_data[29]</Signal>
-                <Signal>user_rx_data[28]</Signal>
-                <Signal>user_rx_data[27]</Signal>
-                <Signal>user_rx_data[26]</Signal>
-                <Signal>user_rx_data[25]</Signal>
-                <Signal>user_rx_data[24]</Signal>
-                <Signal>user_rx_data[23]</Signal>
-                <Signal>user_rx_data[22]</Signal>
-                <Signal>user_rx_data[21]</Signal>
-                <Signal>user_rx_data[20]</Signal>
-                <Signal>user_rx_data[19]</Signal>
-                <Signal>user_rx_data[18]</Signal>
-                <Signal>user_rx_data[17]</Signal>
-                <Signal>user_rx_data[16]</Signal>
-                <Signal>user_rx_data[15]</Signal>
-                <Signal>user_rx_data[14]</Signal>
-                <Signal>user_rx_data[13]</Signal>
-                <Signal>user_rx_data[12]</Signal>
-                <Signal>user_rx_data[11]</Signal>
-                <Signal>user_rx_data[10]</Signal>
-                <Signal>user_rx_data[9]</Signal>
-                <Signal>user_rx_data[8]</Signal>
-                <Signal>user_rx_data[7]</Signal>
-                <Signal>user_rx_data[6]</Signal>
-                <Signal>user_rx_data[5]</Signal>
-                <Signal>user_rx_data[4]</Signal>
-                <Signal>user_rx_data[3]</Signal>
-                <Signal>user_rx_data[2]</Signal>
-                <Signal>user_rx_data[1]</Signal>
-                <Signal>user_rx_data[0]</Signal>
+            <Bus capture_enable="true" name="proto_tx_user_data[31:0]">
+                <Signal>proto_tx_user_data[31]</Signal>
+                <Signal>proto_tx_user_data[30]</Signal>
+                <Signal>proto_tx_user_data[29]</Signal>
+                <Signal>proto_tx_user_data[28]</Signal>
+                <Signal>proto_tx_user_data[27]</Signal>
+                <Signal>proto_tx_user_data[26]</Signal>
+                <Signal>proto_tx_user_data[25]</Signal>
+                <Signal>proto_tx_user_data[24]</Signal>
+                <Signal>proto_tx_user_data[23]</Signal>
+                <Signal>proto_tx_user_data[22]</Signal>
+                <Signal>proto_tx_user_data[21]</Signal>
+                <Signal>proto_tx_user_data[20]</Signal>
+                <Signal>proto_tx_user_data[19]</Signal>
+                <Signal>proto_tx_user_data[18]</Signal>
+                <Signal>proto_tx_user_data[17]</Signal>
+                <Signal>proto_tx_user_data[16]</Signal>
+                <Signal>proto_tx_user_data[15]</Signal>
+                <Signal>proto_tx_user_data[14]</Signal>
+                <Signal>proto_tx_user_data[13]</Signal>
+                <Signal>proto_tx_user_data[12]</Signal>
+                <Signal>proto_tx_user_data[11]</Signal>
+                <Signal>proto_tx_user_data[10]</Signal>
+                <Signal>proto_tx_user_data[9]</Signal>
+                <Signal>proto_tx_user_data[8]</Signal>
+                <Signal>proto_tx_user_data[7]</Signal>
+                <Signal>proto_tx_user_data[6]</Signal>
+                <Signal>proto_tx_user_data[5]</Signal>
+                <Signal>proto_tx_user_data[4]</Signal>
+                <Signal>proto_tx_user_data[3]</Signal>
+                <Signal>proto_tx_user_data[2]</Signal>
+                <Signal>proto_tx_user_data[1]</Signal>
+                <Signal>proto_tx_user_data[0]</Signal>
             </Bus>
-            <Signal capture_enable="true">user_rx_valid</Signal>
-            <Bus capture_enable="true" name="dbg_rx_state[3:0]">
+            <Signal capture_enable="true">proto_tx_user_valid</Signal>
+            <Signal capture_enable="true">proto_tx_user_last</Signal>
+            <Bus capture_enable="true" name="dbg_tx_pkt_type[7:0]">
+                <Signal>dbg_tx_pkt_type[7]</Signal>
+                <Signal>dbg_tx_pkt_type[6]</Signal>
+                <Signal>dbg_tx_pkt_type[5]</Signal>
+                <Signal>dbg_tx_pkt_type[4]</Signal>
+                <Signal>dbg_tx_pkt_type[3]</Signal>
+                <Signal>dbg_tx_pkt_type[2]</Signal>
+                <Signal>dbg_tx_pkt_type[1]</Signal>
+                <Signal>dbg_tx_pkt_type[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="dbg_tx_seq[7:0]">
+                <Signal>dbg_tx_seq[7]</Signal>
+                <Signal>dbg_tx_seq[6]</Signal>
+                <Signal>dbg_tx_seq[5]</Signal>
+                <Signal>dbg_tx_seq[4]</Signal>
+                <Signal>dbg_tx_seq[3]</Signal>
+                <Signal>dbg_tx_seq[2]</Signal>
+                <Signal>dbg_tx_seq[1]</Signal>
+                <Signal>dbg_tx_seq[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="dbg_tx_frame_id[15:0]">
+                <Signal>dbg_tx_frame_id[15]</Signal>
+                <Signal>dbg_tx_frame_id[14]</Signal>
+                <Signal>dbg_tx_frame_id[13]</Signal>
+                <Signal>dbg_tx_frame_id[12]</Signal>
+                <Signal>dbg_tx_frame_id[11]</Signal>
+                <Signal>dbg_tx_frame_id[10]</Signal>
+                <Signal>dbg_tx_frame_id[9]</Signal>
+                <Signal>dbg_tx_frame_id[8]</Signal>
+                <Signal>dbg_tx_frame_id[7]</Signal>
+                <Signal>dbg_tx_frame_id[6]</Signal>
+                <Signal>dbg_tx_frame_id[5]</Signal>
+                <Signal>dbg_tx_frame_id[4]</Signal>
+                <Signal>dbg_tx_frame_id[3]</Signal>
+                <Signal>dbg_tx_frame_id[2]</Signal>
+                <Signal>dbg_tx_frame_id[1]</Signal>
+                <Signal>dbg_tx_frame_id[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="dbg_tx_frag_id[15:0]">
+                <Signal>dbg_tx_frag_id[15]</Signal>
+                <Signal>dbg_tx_frag_id[14]</Signal>
+                <Signal>dbg_tx_frag_id[13]</Signal>
+                <Signal>dbg_tx_frag_id[12]</Signal>
+                <Signal>dbg_tx_frag_id[11]</Signal>
+                <Signal>dbg_tx_frag_id[10]</Signal>
+                <Signal>dbg_tx_frag_id[9]</Signal>
+                <Signal>dbg_tx_frag_id[8]</Signal>
+                <Signal>dbg_tx_frag_id[7]</Signal>
+                <Signal>dbg_tx_frag_id[6]</Signal>
+                <Signal>dbg_tx_frag_id[5]</Signal>
+                <Signal>dbg_tx_frag_id[4]</Signal>
+                <Signal>dbg_tx_frag_id[3]</Signal>
+                <Signal>dbg_tx_frag_id[2]</Signal>
+                <Signal>dbg_tx_frag_id[1]</Signal>
+                <Signal>dbg_tx_frag_id[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_tx_packetizer_v1_1/r_hdr_w0[31:0]">
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[31]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[30]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[29]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[28]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[27]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[26]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[25]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[24]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[23]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[22]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[21]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[20]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[19]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[18]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[17]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[16]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[15]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[14]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[13]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[12]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[11]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[10]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[9]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[8]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[7]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[6]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[5]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[4]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[3]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[2]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[1]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w0[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_tx_packetizer_v1_1/r_hdr_w1[31:0]">
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[31]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[30]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[29]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[28]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[27]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[26]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[25]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[24]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[23]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[22]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[21]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[20]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[19]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[18]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[17]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[16]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[15]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[14]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[13]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[12]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[11]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[10]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[9]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[8]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[7]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[6]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[5]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[4]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[3]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[2]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[1]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_hdr_w1[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_tx_packetizer_v1_1/r_sub_w0[31:0]">
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[31]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[30]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[29]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[28]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[27]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[26]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[25]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[24]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[23]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[22]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[21]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[20]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[19]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[18]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[17]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[16]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[15]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[14]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[13]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[12]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[11]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[10]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[9]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[8]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[7]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[6]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[5]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[4]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[3]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[2]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[1]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w0[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_tx_packetizer_v1_1/r_sub_w1[31:0]">
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[31]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[30]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[29]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[28]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[27]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[26]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[25]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[24]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[23]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[22]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[21]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[20]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[19]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[18]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[17]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[16]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[15]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[14]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[13]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[12]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[11]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[10]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[9]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[8]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[7]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[6]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[5]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[4]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[3]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[2]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[1]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_sub_w1[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_tx_packetizer_v1_1/r_pkt_kind[1:0]">
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_pkt_kind[1]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_pkt_kind[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="u_proto_video_tx_packetizer_v1_1/r_state[3:0]">
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_state[3]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_state[2]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_state[1]</Signal>
+                <Signal>u_proto_video_tx_packetizer_v1_1/r_state[0]</Signal>
+            </Bus>
+            <Bus capture_enable="false" name="dbg_rx_state[3:0]">
                 <Signal>dbg_rx_state[3]</Signal>
                 <Signal>dbg_rx_state[2]</Signal>
                 <Signal>dbg_rx_state[1]</Signal>
                 <Signal>dbg_rx_state[0]</Signal>
             </Bus>
-            <Signal capture_enable="true">user_rx_last</Signal>
-            <Bus capture_enable="true" name="dbg_rx_pkt_type[7:0]">
+            <Signal capture_enable="false">user_rx_last</Signal>
+            <Bus capture_enable="false" name="dbg_rx_pkt_type[7:0]">
                 <Signal>dbg_rx_pkt_type[7]</Signal>
                 <Signal>dbg_rx_pkt_type[6]</Signal>
                 <Signal>dbg_rx_pkt_type[5]</Signal>
@@ -56,88 +259,147 @@
                 <Signal>dbg_rx_pkt_type[1]</Signal>
                 <Signal>dbg_rx_pkt_type[0]</Signal>
             </Bus>
-            <Bus capture_enable="true" name="dbg_rx_seq[7:0]">
-                <Signal>dbg_rx_seq[7]</Signal>
-                <Signal>dbg_rx_seq[6]</Signal>
-                <Signal>dbg_rx_seq[5]</Signal>
-                <Signal>dbg_rx_seq[4]</Signal>
-                <Signal>dbg_rx_seq[3]</Signal>
-                <Signal>dbg_rx_seq[2]</Signal>
-                <Signal>dbg_rx_seq[1]</Signal>
-                <Signal>dbg_rx_seq[0]</Signal>
+            <Signal capture_enable="false">dbg_rx_hdr_crc_ok</Signal>
+            <Signal capture_enable="false">dbg_rx_err_sticky</Signal>
+            <Bus capture_enable="false" name="mon_good_fe_cnt[31:0]">
+                <Signal>mon_good_fe_cnt[31]</Signal>
+                <Signal>mon_good_fe_cnt[30]</Signal>
+                <Signal>mon_good_fe_cnt[29]</Signal>
+                <Signal>mon_good_fe_cnt[28]</Signal>
+                <Signal>mon_good_fe_cnt[27]</Signal>
+                <Signal>mon_good_fe_cnt[26]</Signal>
+                <Signal>mon_good_fe_cnt[25]</Signal>
+                <Signal>mon_good_fe_cnt[24]</Signal>
+                <Signal>mon_good_fe_cnt[23]</Signal>
+                <Signal>mon_good_fe_cnt[22]</Signal>
+                <Signal>mon_good_fe_cnt[21]</Signal>
+                <Signal>mon_good_fe_cnt[20]</Signal>
+                <Signal>mon_good_fe_cnt[19]</Signal>
+                <Signal>mon_good_fe_cnt[18]</Signal>
+                <Signal>mon_good_fe_cnt[17]</Signal>
+                <Signal>mon_good_fe_cnt[16]</Signal>
+                <Signal>mon_good_fe_cnt[15]</Signal>
+                <Signal>mon_good_fe_cnt[14]</Signal>
+                <Signal>mon_good_fe_cnt[13]</Signal>
+                <Signal>mon_good_fe_cnt[12]</Signal>
+                <Signal>mon_good_fe_cnt[11]</Signal>
+                <Signal>mon_good_fe_cnt[10]</Signal>
+                <Signal>mon_good_fe_cnt[9]</Signal>
+                <Signal>mon_good_fe_cnt[8]</Signal>
+                <Signal>mon_good_fe_cnt[7]</Signal>
+                <Signal>mon_good_fe_cnt[6]</Signal>
+                <Signal>mon_good_fe_cnt[5]</Signal>
+                <Signal>mon_good_fe_cnt[4]</Signal>
+                <Signal>mon_good_fe_cnt[3]</Signal>
+                <Signal>mon_good_fe_cnt[2]</Signal>
+                <Signal>mon_good_fe_cnt[1]</Signal>
+                <Signal>mon_good_fe_cnt[0]</Signal>
             </Bus>
-            <Signal capture_enable="true">dbg_rx_hdr_crc_ok</Signal>
-            <Signal capture_enable="true">dbg_rx_crc32_ok</Signal>
-            <Signal capture_enable="true">dbg_rx_err_sticky</Signal>
-            <Bus capture_enable="true" name="mon_hdr_ok_cnt[31:0]">
-                <Signal>mon_hdr_ok_cnt[31]</Signal>
-                <Signal>mon_hdr_ok_cnt[30]</Signal>
-                <Signal>mon_hdr_ok_cnt[29]</Signal>
-                <Signal>mon_hdr_ok_cnt[28]</Signal>
-                <Signal>mon_hdr_ok_cnt[27]</Signal>
-                <Signal>mon_hdr_ok_cnt[26]</Signal>
-                <Signal>mon_hdr_ok_cnt[25]</Signal>
-                <Signal>mon_hdr_ok_cnt[24]</Signal>
-                <Signal>mon_hdr_ok_cnt[23]</Signal>
-                <Signal>mon_hdr_ok_cnt[22]</Signal>
-                <Signal>mon_hdr_ok_cnt[21]</Signal>
-                <Signal>mon_hdr_ok_cnt[20]</Signal>
-                <Signal>mon_hdr_ok_cnt[19]</Signal>
-                <Signal>mon_hdr_ok_cnt[18]</Signal>
-                <Signal>mon_hdr_ok_cnt[17]</Signal>
-                <Signal>mon_hdr_ok_cnt[16]</Signal>
-                <Signal>mon_hdr_ok_cnt[15]</Signal>
-                <Signal>mon_hdr_ok_cnt[14]</Signal>
-                <Signal>mon_hdr_ok_cnt[13]</Signal>
-                <Signal>mon_hdr_ok_cnt[12]</Signal>
-                <Signal>mon_hdr_ok_cnt[11]</Signal>
-                <Signal>mon_hdr_ok_cnt[10]</Signal>
-                <Signal>mon_hdr_ok_cnt[9]</Signal>
-                <Signal>mon_hdr_ok_cnt[8]</Signal>
-                <Signal>mon_hdr_ok_cnt[7]</Signal>
-                <Signal>mon_hdr_ok_cnt[6]</Signal>
-                <Signal>mon_hdr_ok_cnt[5]</Signal>
-                <Signal>mon_hdr_ok_cnt[4]</Signal>
-                <Signal>mon_hdr_ok_cnt[3]</Signal>
-                <Signal>mon_hdr_ok_cnt[2]</Signal>
-                <Signal>mon_hdr_ok_cnt[1]</Signal>
-                <Signal>mon_hdr_ok_cnt[0]</Signal>
+            <Bus capture_enable="false" name="mon_good_fs_cnt[31:0]">
+                <Signal>mon_good_fs_cnt[31]</Signal>
+                <Signal>mon_good_fs_cnt[30]</Signal>
+                <Signal>mon_good_fs_cnt[29]</Signal>
+                <Signal>mon_good_fs_cnt[28]</Signal>
+                <Signal>mon_good_fs_cnt[27]</Signal>
+                <Signal>mon_good_fs_cnt[26]</Signal>
+                <Signal>mon_good_fs_cnt[25]</Signal>
+                <Signal>mon_good_fs_cnt[24]</Signal>
+                <Signal>mon_good_fs_cnt[23]</Signal>
+                <Signal>mon_good_fs_cnt[22]</Signal>
+                <Signal>mon_good_fs_cnt[21]</Signal>
+                <Signal>mon_good_fs_cnt[20]</Signal>
+                <Signal>mon_good_fs_cnt[19]</Signal>
+                <Signal>mon_good_fs_cnt[18]</Signal>
+                <Signal>mon_good_fs_cnt[17]</Signal>
+                <Signal>mon_good_fs_cnt[16]</Signal>
+                <Signal>mon_good_fs_cnt[15]</Signal>
+                <Signal>mon_good_fs_cnt[14]</Signal>
+                <Signal>mon_good_fs_cnt[13]</Signal>
+                <Signal>mon_good_fs_cnt[12]</Signal>
+                <Signal>mon_good_fs_cnt[11]</Signal>
+                <Signal>mon_good_fs_cnt[10]</Signal>
+                <Signal>mon_good_fs_cnt[9]</Signal>
+                <Signal>mon_good_fs_cnt[8]</Signal>
+                <Signal>mon_good_fs_cnt[7]</Signal>
+                <Signal>mon_good_fs_cnt[6]</Signal>
+                <Signal>mon_good_fs_cnt[5]</Signal>
+                <Signal>mon_good_fs_cnt[4]</Signal>
+                <Signal>mon_good_fs_cnt[3]</Signal>
+                <Signal>mon_good_fs_cnt[2]</Signal>
+                <Signal>mon_good_fs_cnt[1]</Signal>
+                <Signal>mon_good_fs_cnt[0]</Signal>
             </Bus>
-            <Bus capture_enable="true" name="mon_crc_ok_cnt[31:0]">
-                <Signal>mon_crc_ok_cnt[31]</Signal>
-                <Signal>mon_crc_ok_cnt[30]</Signal>
-                <Signal>mon_crc_ok_cnt[29]</Signal>
-                <Signal>mon_crc_ok_cnt[28]</Signal>
-                <Signal>mon_crc_ok_cnt[27]</Signal>
-                <Signal>mon_crc_ok_cnt[26]</Signal>
-                <Signal>mon_crc_ok_cnt[25]</Signal>
-                <Signal>mon_crc_ok_cnt[24]</Signal>
-                <Signal>mon_crc_ok_cnt[23]</Signal>
-                <Signal>mon_crc_ok_cnt[22]</Signal>
-                <Signal>mon_crc_ok_cnt[21]</Signal>
-                <Signal>mon_crc_ok_cnt[20]</Signal>
-                <Signal>mon_crc_ok_cnt[19]</Signal>
-                <Signal>mon_crc_ok_cnt[18]</Signal>
-                <Signal>mon_crc_ok_cnt[17]</Signal>
-                <Signal>mon_crc_ok_cnt[16]</Signal>
-                <Signal>mon_crc_ok_cnt[15]</Signal>
-                <Signal>mon_crc_ok_cnt[14]</Signal>
-                <Signal>mon_crc_ok_cnt[13]</Signal>
-                <Signal>mon_crc_ok_cnt[12]</Signal>
-                <Signal>mon_crc_ok_cnt[11]</Signal>
-                <Signal>mon_crc_ok_cnt[10]</Signal>
-                <Signal>mon_crc_ok_cnt[9]</Signal>
-                <Signal>mon_crc_ok_cnt[8]</Signal>
-                <Signal>mon_crc_ok_cnt[7]</Signal>
-                <Signal>mon_crc_ok_cnt[6]</Signal>
-                <Signal>mon_crc_ok_cnt[5]</Signal>
-                <Signal>mon_crc_ok_cnt[4]</Signal>
-                <Signal>mon_crc_ok_cnt[3]</Signal>
-                <Signal>mon_crc_ok_cnt[2]</Signal>
-                <Signal>mon_crc_ok_cnt[1]</Signal>
-                <Signal>mon_crc_ok_cnt[0]</Signal>
+            <Signal capture_enable="false">frm_frame_ok_sticky</Signal>
+            <Signal capture_enable="false">frm_frame_err_sticky</Signal>
+            <Bus capture_enable="false" name="frm_bad_frame_cnt[31:0]">
+                <Signal>frm_bad_frame_cnt[31]</Signal>
+                <Signal>frm_bad_frame_cnt[30]</Signal>
+                <Signal>frm_bad_frame_cnt[29]</Signal>
+                <Signal>frm_bad_frame_cnt[28]</Signal>
+                <Signal>frm_bad_frame_cnt[27]</Signal>
+                <Signal>frm_bad_frame_cnt[26]</Signal>
+                <Signal>frm_bad_frame_cnt[25]</Signal>
+                <Signal>frm_bad_frame_cnt[24]</Signal>
+                <Signal>frm_bad_frame_cnt[23]</Signal>
+                <Signal>frm_bad_frame_cnt[22]</Signal>
+                <Signal>frm_bad_frame_cnt[21]</Signal>
+                <Signal>frm_bad_frame_cnt[20]</Signal>
+                <Signal>frm_bad_frame_cnt[19]</Signal>
+                <Signal>frm_bad_frame_cnt[18]</Signal>
+                <Signal>frm_bad_frame_cnt[17]</Signal>
+                <Signal>frm_bad_frame_cnt[16]</Signal>
+                <Signal>frm_bad_frame_cnt[15]</Signal>
+                <Signal>frm_bad_frame_cnt[14]</Signal>
+                <Signal>frm_bad_frame_cnt[13]</Signal>
+                <Signal>frm_bad_frame_cnt[12]</Signal>
+                <Signal>frm_bad_frame_cnt[11]</Signal>
+                <Signal>frm_bad_frame_cnt[10]</Signal>
+                <Signal>frm_bad_frame_cnt[9]</Signal>
+                <Signal>frm_bad_frame_cnt[8]</Signal>
+                <Signal>frm_bad_frame_cnt[7]</Signal>
+                <Signal>frm_bad_frame_cnt[6]</Signal>
+                <Signal>frm_bad_frame_cnt[5]</Signal>
+                <Signal>frm_bad_frame_cnt[4]</Signal>
+                <Signal>frm_bad_frame_cnt[3]</Signal>
+                <Signal>frm_bad_frame_cnt[2]</Signal>
+                <Signal>frm_bad_frame_cnt[1]</Signal>
+                <Signal>frm_bad_frame_cnt[0]</Signal>
             </Bus>
-            <Bus capture_enable="true" name="mon_good_pay_cnt[31:0]">
+            <Bus capture_enable="false" name="frm_good_frame_cnt[31:0]">
+                <Signal>frm_good_frame_cnt[31]</Signal>
+                <Signal>frm_good_frame_cnt[30]</Signal>
+                <Signal>frm_good_frame_cnt[29]</Signal>
+                <Signal>frm_good_frame_cnt[28]</Signal>
+                <Signal>frm_good_frame_cnt[27]</Signal>
+                <Signal>frm_good_frame_cnt[26]</Signal>
+                <Signal>frm_good_frame_cnt[25]</Signal>
+                <Signal>frm_good_frame_cnt[24]</Signal>
+                <Signal>frm_good_frame_cnt[23]</Signal>
+                <Signal>frm_good_frame_cnt[22]</Signal>
+                <Signal>frm_good_frame_cnt[21]</Signal>
+                <Signal>frm_good_frame_cnt[20]</Signal>
+                <Signal>frm_good_frame_cnt[19]</Signal>
+                <Signal>frm_good_frame_cnt[18]</Signal>
+                <Signal>frm_good_frame_cnt[17]</Signal>
+                <Signal>frm_good_frame_cnt[16]</Signal>
+                <Signal>frm_good_frame_cnt[15]</Signal>
+                <Signal>frm_good_frame_cnt[14]</Signal>
+                <Signal>frm_good_frame_cnt[13]</Signal>
+                <Signal>frm_good_frame_cnt[12]</Signal>
+                <Signal>frm_good_frame_cnt[11]</Signal>
+                <Signal>frm_good_frame_cnt[10]</Signal>
+                <Signal>frm_good_frame_cnt[9]</Signal>
+                <Signal>frm_good_frame_cnt[8]</Signal>
+                <Signal>frm_good_frame_cnt[7]</Signal>
+                <Signal>frm_good_frame_cnt[6]</Signal>
+                <Signal>frm_good_frame_cnt[5]</Signal>
+                <Signal>frm_good_frame_cnt[4]</Signal>
+                <Signal>frm_good_frame_cnt[3]</Signal>
+                <Signal>frm_good_frame_cnt[2]</Signal>
+                <Signal>frm_good_frame_cnt[1]</Signal>
+                <Signal>frm_good_frame_cnt[0]</Signal>
+            </Bus>
+            <Bus capture_enable="false" name="mon_good_pay_cnt[31:0]">
                 <Signal>mon_good_pay_cnt[31]</Signal>
                 <Signal>mon_good_pay_cnt[30]</Signal>
                 <Signal>mon_good_pay_cnt[29]</Signal>
@@ -171,6 +433,120 @@
                 <Signal>mon_good_pay_cnt[1]</Signal>
                 <Signal>mon_good_pay_cnt[0]</Signal>
             </Bus>
+            <Bus capture_enable="false" name="mon_crc_ok_cnt[31:0]">
+                <Signal>mon_crc_ok_cnt[31]</Signal>
+                <Signal>mon_crc_ok_cnt[30]</Signal>
+                <Signal>mon_crc_ok_cnt[29]</Signal>
+                <Signal>mon_crc_ok_cnt[28]</Signal>
+                <Signal>mon_crc_ok_cnt[27]</Signal>
+                <Signal>mon_crc_ok_cnt[26]</Signal>
+                <Signal>mon_crc_ok_cnt[25]</Signal>
+                <Signal>mon_crc_ok_cnt[24]</Signal>
+                <Signal>mon_crc_ok_cnt[23]</Signal>
+                <Signal>mon_crc_ok_cnt[22]</Signal>
+                <Signal>mon_crc_ok_cnt[21]</Signal>
+                <Signal>mon_crc_ok_cnt[20]</Signal>
+                <Signal>mon_crc_ok_cnt[19]</Signal>
+                <Signal>mon_crc_ok_cnt[18]</Signal>
+                <Signal>mon_crc_ok_cnt[17]</Signal>
+                <Signal>mon_crc_ok_cnt[16]</Signal>
+                <Signal>mon_crc_ok_cnt[15]</Signal>
+                <Signal>mon_crc_ok_cnt[14]</Signal>
+                <Signal>mon_crc_ok_cnt[13]</Signal>
+                <Signal>mon_crc_ok_cnt[12]</Signal>
+                <Signal>mon_crc_ok_cnt[11]</Signal>
+                <Signal>mon_crc_ok_cnt[10]</Signal>
+                <Signal>mon_crc_ok_cnt[9]</Signal>
+                <Signal>mon_crc_ok_cnt[8]</Signal>
+                <Signal>mon_crc_ok_cnt[7]</Signal>
+                <Signal>mon_crc_ok_cnt[6]</Signal>
+                <Signal>mon_crc_ok_cnt[5]</Signal>
+                <Signal>mon_crc_ok_cnt[4]</Signal>
+                <Signal>mon_crc_ok_cnt[3]</Signal>
+                <Signal>mon_crc_ok_cnt[2]</Signal>
+                <Signal>mon_crc_ok_cnt[1]</Signal>
+                <Signal>mon_crc_ok_cnt[0]</Signal>
+            </Bus>
+            <Bus capture_enable="false" name="mon_hdr_ok_cnt[31:0]">
+                <Signal>mon_hdr_ok_cnt[31]</Signal>
+                <Signal>mon_hdr_ok_cnt[30]</Signal>
+                <Signal>mon_hdr_ok_cnt[29]</Signal>
+                <Signal>mon_hdr_ok_cnt[28]</Signal>
+                <Signal>mon_hdr_ok_cnt[27]</Signal>
+                <Signal>mon_hdr_ok_cnt[26]</Signal>
+                <Signal>mon_hdr_ok_cnt[25]</Signal>
+                <Signal>mon_hdr_ok_cnt[24]</Signal>
+                <Signal>mon_hdr_ok_cnt[23]</Signal>
+                <Signal>mon_hdr_ok_cnt[22]</Signal>
+                <Signal>mon_hdr_ok_cnt[21]</Signal>
+                <Signal>mon_hdr_ok_cnt[20]</Signal>
+                <Signal>mon_hdr_ok_cnt[19]</Signal>
+                <Signal>mon_hdr_ok_cnt[18]</Signal>
+                <Signal>mon_hdr_ok_cnt[17]</Signal>
+                <Signal>mon_hdr_ok_cnt[16]</Signal>
+                <Signal>mon_hdr_ok_cnt[15]</Signal>
+                <Signal>mon_hdr_ok_cnt[14]</Signal>
+                <Signal>mon_hdr_ok_cnt[13]</Signal>
+                <Signal>mon_hdr_ok_cnt[12]</Signal>
+                <Signal>mon_hdr_ok_cnt[11]</Signal>
+                <Signal>mon_hdr_ok_cnt[10]</Signal>
+                <Signal>mon_hdr_ok_cnt[9]</Signal>
+                <Signal>mon_hdr_ok_cnt[8]</Signal>
+                <Signal>mon_hdr_ok_cnt[7]</Signal>
+                <Signal>mon_hdr_ok_cnt[6]</Signal>
+                <Signal>mon_hdr_ok_cnt[5]</Signal>
+                <Signal>mon_hdr_ok_cnt[4]</Signal>
+                <Signal>mon_hdr_ok_cnt[3]</Signal>
+                <Signal>mon_hdr_ok_cnt[2]</Signal>
+                <Signal>mon_hdr_ok_cnt[1]</Signal>
+                <Signal>mon_hdr_ok_cnt[0]</Signal>
+            </Bus>
+            <Signal capture_enable="false">dbg_rx_crc32_ok</Signal>
+            <Bus capture_enable="false" name="dbg_rx_seq[7:0]">
+                <Signal>dbg_rx_seq[7]</Signal>
+                <Signal>dbg_rx_seq[6]</Signal>
+                <Signal>dbg_rx_seq[5]</Signal>
+                <Signal>dbg_rx_seq[4]</Signal>
+                <Signal>dbg_rx_seq[3]</Signal>
+                <Signal>dbg_rx_seq[2]</Signal>
+                <Signal>dbg_rx_seq[1]</Signal>
+                <Signal>dbg_rx_seq[0]</Signal>
+            </Bus>
+            <Signal capture_enable="false">user_rx_valid</Signal>
+            <Bus capture_enable="false" name="user_rx_data[31:0]">
+                <Signal>user_rx_data[31]</Signal>
+                <Signal>user_rx_data[30]</Signal>
+                <Signal>user_rx_data[29]</Signal>
+                <Signal>user_rx_data[28]</Signal>
+                <Signal>user_rx_data[27]</Signal>
+                <Signal>user_rx_data[26]</Signal>
+                <Signal>user_rx_data[25]</Signal>
+                <Signal>user_rx_data[24]</Signal>
+                <Signal>user_rx_data[23]</Signal>
+                <Signal>user_rx_data[22]</Signal>
+                <Signal>user_rx_data[21]</Signal>
+                <Signal>user_rx_data[20]</Signal>
+                <Signal>user_rx_data[19]</Signal>
+                <Signal>user_rx_data[18]</Signal>
+                <Signal>user_rx_data[17]</Signal>
+                <Signal>user_rx_data[16]</Signal>
+                <Signal>user_rx_data[15]</Signal>
+                <Signal>user_rx_data[14]</Signal>
+                <Signal>user_rx_data[13]</Signal>
+                <Signal>user_rx_data[12]</Signal>
+                <Signal>user_rx_data[11]</Signal>
+                <Signal>user_rx_data[10]</Signal>
+                <Signal>user_rx_data[9]</Signal>
+                <Signal>user_rx_data[8]</Signal>
+                <Signal>user_rx_data[7]</Signal>
+                <Signal>user_rx_data[6]</Signal>
+                <Signal>user_rx_data[5]</Signal>
+                <Signal>user_rx_data[4]</Signal>
+                <Signal>user_rx_data[3]</Signal>
+                <Signal>user_rx_data[2]</Signal>
+                <Signal>user_rx_data[1]</Signal>
+                <Signal>user_rx_data[0]</Signal>
+            </Bus>
         </SignalList>
         <Triggers>
             <Trigger index="0">
@@ -178,7 +554,20 @@
                     <Signal>dbg_rx_err_sticky</Signal>
                 </SignalList>
             </Trigger>
-            <Trigger index="1"/>
+            <Trigger index="1">
+                <SignalList>
+                    <Bus restorename="dbg_tx_pkt_type[7:0]">
+                        <Signal>dbg_tx_pkt_type[7]</Signal>
+                        <Signal>dbg_tx_pkt_type[6]</Signal>
+                        <Signal>dbg_tx_pkt_type[5]</Signal>
+                        <Signal>dbg_tx_pkt_type[4]</Signal>
+                        <Signal>dbg_tx_pkt_type[3]</Signal>
+                        <Signal>dbg_tx_pkt_type[2]</Signal>
+                        <Signal>dbg_tx_pkt_type[1]</Signal>
+                        <Signal>dbg_tx_pkt_type[0]</Signal>
+                    </Bus>
+                </SignalList>
+            </Trigger>
             <Trigger index="2"/>
             <Trigger index="3"/>
             <Trigger index="4"/>
@@ -195,8 +584,8 @@
             <Trigger index="15"/>
         </Triggers>
         <MatchUnits>
-            <MatchUnit index="0" enabled="1" match_type="1" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="R" value1="0" trigger="0"/>
-            <MatchUnit index="1" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="0" enabled="0" match_type="1" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="1" value1="0" trigger="0"/>
+            <MatchUnit index="1" enabled="1" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="00100001" value1="00000000" trigger="1"/>
             <MatchUnit index="2" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
             <MatchUnit index="3" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
             <MatchUnit index="4" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
@@ -213,8 +602,8 @@
             <MatchUnit index="15" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
         </MatchUnits>
         <Expressions type="Static">
-            <Expression>M0</Expression>
+            <Expression>M1</Expression>
         </Expressions>
     </AoCore>
-    <GAO_ID>1000001000000001</GAO_ID>
+    <GAO_ID>0100111111011100</GAO_ID>
 </GAO_CONFIG>
