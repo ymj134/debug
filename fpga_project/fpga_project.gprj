@@ -36,7 +36,8 @@
         <File path="src/top.cst" type="file.cst" enable="1"/>
         <File path="src/top.sdc" type="file.sdc" enable="1"/>
         <File path="src/fpga_project.rao" type="file.gao" enable="0"/>
-        <File path="src/fpga_project1.rao" type="file.gao" enable="1"/>
+        <File path="src/fpga_project1.rao" type="file.gao" enable="0"/>
+        <File path="src/fpga_project2.rao" type="file.gao" enable="1"/>
         <File path="src/top.gsc" type="file.gsc" enable="1"/>
     </FileList>
 </Project>
