@@ -2,30 +2,28 @@
 
 /*********************************************************************************
 * Module       : top
-* Style tag    : top_frame_lite_v1
+* Style tag    : top_frame_lite_v2
 * Description  :
 *   720p60 color bar -> frame-mode lite protocol -> RoraLink loopback ->
-*   RX depacketize -> HDMI display
+*   RX depacketize -> RX FIFO -> unpack -> HDMI display
 *
-* Notes:
-*   1) pixel_clk 请配置为 74.25MHz
-*   2) 720p60 timing:
-*        H total = 1650, sync = 40, back porch = 220, active = 1280
-*        V total = 750,  sync = 5,  back porch = 20,  active = 720
-*   3) HDMI 显示优先输出 RX 端解包后的像素；
-*      如果 channel_up 掉了，则显示红闪。
+* Key points:
+*   1) pixel_clk = 74.25MHz
+*   2) HDMI 输出时序由本模块内部 counters 产生
+*   3) 检测到 rx_pix_sof 后，将 HDMI 时序重对齐到 active 左上角
+*   4) channel_up = 0 时，HDMI 保持 720p 输出，但显示红闪
 *********************************************************************************/
 
 module top
 (
-    input           osc_clk_i,          // 50M
-    input           resetn_i,           // low-active
+    input           osc_clk_i,
+    input           resetn_i,
 
     output          sfp1_tx_disable_o,
     output          sfp2_tx_disable_o,
 
-    input           rx_i,               // 预留未使用
-    output          tx_o,               // 预留未使用
+    input           rx_i,
+    output          tx_o,
 
     output [3:0]    test_o,
     output [3:0]    led_o,
@@ -67,7 +65,7 @@ module top
     localparam [15:0] ACT_V_END   = C_V_SYNC + C_V_BPORCH + C_V_RES; // 745
 
     //==========================================================================
-    // 1) RoraLink frame-mode 用户接口
+    // 1) RoraLink 用户接口
     //==========================================================================
     wire [DATA_WIDTH-1:0] user_tx_data;
     wire [STRB_WIDTH-1:0] user_tx_strb;
@@ -92,7 +90,7 @@ module top
     //==========================================================================
     // 2) 时钟 / 复位 / GT 状态
     //==========================================================================
-    wire                  sys_clk/* synthesis syn_keep=1 */;
+    wire                  sys_clk;
     wire                  sys_rst;
     wire                  cfg_clk;
     wire                  cfg_pll_lock;
@@ -115,13 +113,14 @@ module top
     wire                  sys_reset;
 
     //==========================================================================
-    // 3) pixel / HDMI / 本地测试图
+    // 3) pixel / 本地源 / HDMI
     //==========================================================================
-    wire        pixel_clk;       // 74.25MHz
+    wire        pixel_clk;       // 请配置成 74.25MHz
     wire        pixel_clk_lock;
     wire        pixel_rst;
     wire        pixel_rst_n = ~pixel_rst;
 
+    // 本地 color bar 用的 timing
     wire [15:0] tp_v_cnt;
     wire [15:0] tp_h_cnt;
     wire        tp_vs;
@@ -131,11 +130,18 @@ module top
     wire [7:0]  tp_g;
     wire [7:0]  tp_b;
 
-    reg         tp_vs_d = 1'b0;
+    // HDMI 输出专用 timing（和源端 timing 解耦）
+    reg  [15:0] hdmi_h_cnt = 16'd0;
+    reg  [15:0] hdmi_v_cnt = 16'd0;
+
+    wire        hdmi_hs;
+    wire        hdmi_vs;
+    wire        hdmi_de;
+
     reg  [7:0]  blink_cnt = 8'd0;
 
     //==========================================================================
-    // 4) 本地源 active-only 像素流定义
+    // 4) 本地源 active-only 像素流
     //==========================================================================
     wire        src_pix_valid;
     wire [23:0] src_pix_data;
@@ -174,7 +180,7 @@ module top
     assign tx_word_fifo_wr_en = tx_pack_valid & (~tx_word_fifo_full);
 
     //==========================================================================
-    // 6) Lite TX protocol packetizer
+    // 6) Lite TX packetizer
     //==========================================================================
     wire [31:0] proto_tx_user_data;
     wire        proto_tx_user_valid;
@@ -190,7 +196,7 @@ module top
     wire        dbg_tx_err_sticky;
 
     //==========================================================================
-    // 7) Lite RX protocol depacketizer -> RX word FIFO
+    // 7) Lite RX depacketizer -> RX word FIFO
     //==========================================================================
     wire [35:0] rx_word_fifo_din;
     wire        rx_word_fifo_wr_en;
@@ -218,71 +224,59 @@ module top
     wire        rx_pix_sof;
     wire        rx_pix_eof;
     wire        rx_unpack_err_sticky;
-
     wire        rx_pix_ready;
 
     //==========================================================================
-    // 9) 显示选择：channel_up 掉了就红闪，否则显示 RX 数据
+    // 9) 显示侧 frame aligner / 链路状态同步
     //==========================================================================
     reg channel_up_meta_pclk = 1'b0;
     reg channel_up_pclk      = 1'b0;
+    reg channel_up_pclk_d    = 1'b0;
 
-    wire [23:0] hdmi_rgb888;
+    reg rx_disp_locked       = 1'b0;
+
+    wire channel_down_pulse_pclk;
+    assign channel_down_pulse_pclk = channel_up_pclk_d & (~channel_up_pclk);
+
+    // 未锁定前持续消费，直到看到 rx_pix_sof
+    // 锁定后只在 HDMI active 区消费
+    assign rx_pix_ready = channel_up_pclk &&
+                          (rx_disp_locked ? hdmi_de : 1'b1);
+
+    //==========================================================================
+    // 10) HDMI 输出颜色选择
+    //==========================================================================
     wire [23:0] red_flash_rgb;
+    wire [23:0] hdmi_rgb888;
 
     assign red_flash_rgb = blink_cnt[5] ? 24'hFF0000 : 24'h200000;
 
-    // RX 端只要链路起来，就允许持续消费，避免把 FIFO 堵死
-    assign rx_pix_ready = tp_de & channel_up_pclk;
-
-    // 有效区内：
-    //   channel down -> 红闪
-    //   channel up   -> 显示 RX 像素；若当前拍没有 RX 像素则显示黑
     assign hdmi_rgb888 =
-        tp_de ?
-            (channel_up_pclk ? (rx_pix_valid ? rx_pix_data : 24'h000000)
-                             : red_flash_rgb)
+        hdmi_de ?
+            (channel_up_pclk ?
+                (rx_pix_valid ? rx_pix_data : 24'h000000)
+                : red_flash_rgb)
             : 24'h000000;
 
-    always @(posedge pixel_clk or negedge pixel_rst_n) begin
-        if (!pixel_rst_n) begin
-            tp_vs_d            <= 1'b0;
-            blink_cnt          <= 8'd0;
-            channel_up_meta_pclk <= 1'b0;
-            channel_up_pclk      <= 1'b0;
-        end
-        else begin
-            tp_vs_d <= tp_vs;
-
-            // 每帧加一，用来做红闪
-            if (tp_vs_d && !tp_vs)
-                blink_cnt <= blink_cnt + 8'd1;
-
-            // 同步 channel_up 到 pixel_clk
-            channel_up_meta_pclk <= channel_up;
-            channel_up_pclk      <= channel_up_meta_pclk;
-        end
-    end
-
     //==========================================================================
-    // 10) 固定连接 / LED / TEST
+    // 11) 固定连接 / LED / TEST
     //==========================================================================
     assign sfp1_tx_disable_o = 1'b0;
     assign sfp2_tx_disable_o = 1'b0;
-    assign tx_o              = 1'b1;   // 串口预留
+    assign tx_o              = 1'b1;
 
     assign led_o[0] = cfg_pll_lock;
     assign led_o[1] = gt_pll_ok;
     assign led_o[2] = channel_up;
-    assign led_o[3] = rx_pix_valid;
+    assign led_o[3] = rx_disp_locked;
 
     assign test_o[0] = dbg_tx_err_sticky;
     assign test_o[1] = dbg_rx_err_sticky;
-    assign test_o[2] = crc_valid;
-    assign test_o[3] = ~crc_pass_fail_n;
+    assign test_o[2] = rx_unpack_err_sticky;
+    assign test_o[3] = tx_pack_align_err;
 
     //==========================================================================
-    // 11) RoraLink 时钟 / 复位骨架
+    // 12) RoraLink 时钟 / 复位
     //==========================================================================
     assign sys_clk         = gt_pcs_tx_clk[0];
     assign gt_reset        = 1'b0;
@@ -314,7 +308,7 @@ module top
     );
 
     //==========================================================================
-    // 12) SerDes_Top（frame mode）
+    // 13) SerDes_Top（frame mode）
     //==========================================================================
     SerDes_Top u_SerDes_Top
     (
@@ -361,13 +355,13 @@ module top
     );
 
     //==========================================================================
-    // 13) pixel clock / ADV7513 / testpattern
+    // 14) pixel clock / ADV7513 / 本地测试图
     //==========================================================================
     Gowin_PLL_pixel u_pixel_pll
     (
         .clkin      ( osc_clk_i       ),
         .init_clk   ( osc_clk_i       ),
-        .clkout0    ( pixel_clk       ),   // 请配置为 74.25MHz
+        .clkout0    ( pixel_clk       ),   // 74.25MHz
         .lock       ( pixel_clk_lock  ),
         .reset      ( !resetn_i       )
     );
@@ -416,6 +410,7 @@ module top
         .SDA        (IO_adv7513_sda)
     );
 
+    // 本地 720p color bar 源
     testpattern testpattern_inst0
     (
         .I_pxl_clk   (pixel_clk),
@@ -445,14 +440,68 @@ module top
         .O_data_b    (tp_b)
     );
 
+    //==========================================================================
+    // 15) HDMI 输出 timing 发生器（可被 rx_pix_sof 重对齐）
+    //==========================================================================
+    assign hdmi_hs = (hdmi_h_cnt < C_H_SYNC) ? 1'b1 : 1'b0;
+    assign hdmi_vs = (hdmi_v_cnt < C_V_SYNC) ? 1'b1 : 1'b0;
+    assign hdmi_de = (hdmi_h_cnt >= ACT_H_START) && (hdmi_h_cnt < ACT_H_END) &&
+                     (hdmi_v_cnt >= ACT_V_START) && (hdmi_v_cnt < ACT_V_END);
+
+    always @(posedge pixel_clk or negedge pixel_rst_n) begin
+        if (!pixel_rst_n) begin
+            hdmi_h_cnt          <= 16'd0;
+            hdmi_v_cnt          <= 16'd0;
+            blink_cnt           <= 8'd0;
+            channel_up_meta_pclk<= 1'b0;
+            channel_up_pclk     <= 1'b0;
+            channel_up_pclk_d   <= 1'b0;
+            rx_disp_locked      <= 1'b0;
+        end
+        else begin
+            // CDC
+            channel_up_meta_pclk <= channel_up;
+            channel_up_pclk      <= channel_up_meta_pclk;
+            channel_up_pclk_d    <= channel_up_pclk;
+
+            // 链路掉线则丢锁
+            if (channel_down_pulse_pclk)
+                rx_disp_locked <= 1'b0;
+
+            // 优先处理对齐：看到一帧开始，就把 HDMI timing 重对齐到 active 左上角
+            if (channel_up_pclk && rx_pix_sof) begin
+                hdmi_h_cnt     <= ACT_H_START;
+                hdmi_v_cnt     <= ACT_V_START;
+                rx_disp_locked <= 1'b1;
+            end
+            else begin
+                // 正常 free-run timing
+                if (hdmi_h_cnt == (C_H_TOTAL - 1)) begin
+                    hdmi_h_cnt <= 16'd0;
+
+                    if (hdmi_v_cnt == (C_V_TOTAL - 1)) begin
+                        hdmi_v_cnt <= 16'd0;
+                        blink_cnt  <= blink_cnt + 8'd1;
+                    end
+                    else begin
+                        hdmi_v_cnt <= hdmi_v_cnt + 16'd1;
+                    end
+                end
+                else begin
+                    hdmi_h_cnt <= hdmi_h_cnt + 16'd1;
+                end
+            end
+        end
+    end
+
     assign O_adv7513_data = hdmi_rgb888;
-    assign O_adv7513_vs   = tp_vs;
-    assign O_adv7513_hs   = tp_hs;
-    assign O_adv7513_de   = tp_de;
+    assign O_adv7513_vs   = hdmi_vs;
+    assign O_adv7513_hs   = hdmi_hs;
+    assign O_adv7513_de   = hdmi_de;
     assign O_adv7513_clk  = pixel_clk;
 
     //==========================================================================
-    // 14) Packer / Unpacker
+    // 16) Packer / Unpacker
     //==========================================================================
     tx_rgb888_packer_v1_0 u_tx_rgb888_packer_v1_0
     (
@@ -492,7 +541,7 @@ module top
     );
 
     //==========================================================================
-    // 15) Lite 协议 TX / RX
+    // 17) Lite 协议 TX / RX
     //==========================================================================
     proto_video_tx_packetizer_lite_v1
     #(
@@ -566,7 +615,7 @@ module top
     assign user_tx_strb  = proto_tx_user_strb;
 
     //==========================================================================
-    // 16) TX / RX word async FIFO
+    // 18) TX / RX async FIFO
     //==========================================================================
     fifo_top_tx36x4096 u_fifo_top_tx36x4096
     (
