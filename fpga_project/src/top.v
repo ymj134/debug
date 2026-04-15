@@ -2,16 +2,17 @@
 
 /*********************************************************************************
 * Module       : top
-* Style tag    : top_frame_lite_v2
+* Style tag    : top_frame_lite_v3
 * Description  :
 *   720p60 color bar -> frame-mode lite protocol -> RoraLink loopback ->
 *   RX depacketize -> RX FIFO -> unpack -> HDMI display
 *
 * Key points:
 *   1) pixel_clk = 74.25MHz
-*   2) HDMI 输出时序由本模块内部 counters 产生
-*   3) 检测到 rx_pix_sof 后，将 HDMI 时序重对齐到 active 左上角
-*   4) channel_up = 0 时，HDMI 保持 720p 输出，但显示红闪
+*   2) HDMI 输出直接复用本地 720p timing（tp_hs/tp_vs/tp_de）
+*   3) 显示侧不再用独立计数器，不再每帧重对齐
+*   4) pixel 域检测到一次 rx_pix_sof 后，进入 rx_stream_enable_pclk
+*   5) channel_up=0 时显示红闪
 *********************************************************************************/
 
 module top
@@ -90,7 +91,7 @@ module top
     //==========================================================================
     // 2) 时钟 / 复位 / GT 状态
     //==========================================================================
-    wire                  sys_clk;
+    wire                  sys_clk/* synthesis syn_keep=1 */;
     wire                  sys_rst;
     wire                  cfg_clk;
     wire                  cfg_pll_lock;
@@ -115,12 +116,11 @@ module top
     //==========================================================================
     // 3) pixel / 本地源 / HDMI
     //==========================================================================
-    wire        pixel_clk;       // 请配置成 74.25MHz
+    wire        pixel_clk;       // 已经配置成 74.25MHz
     wire        pixel_clk_lock;
     wire        pixel_rst;
     wire        pixel_rst_n = ~pixel_rst;
 
-    // 本地 color bar 用的 timing
     wire [15:0] tp_v_cnt;
     wire [15:0] tp_h_cnt;
     wire        tp_vs;
@@ -130,15 +130,8 @@ module top
     wire [7:0]  tp_g;
     wire [7:0]  tp_b;
 
-    // HDMI 输出专用 timing（和源端 timing 解耦）
-    reg  [15:0] hdmi_h_cnt = 16'd0;
-    reg  [15:0] hdmi_v_cnt = 16'd0;
-
-    wire        hdmi_hs;
-    wire        hdmi_vs;
-    wire        hdmi_de;
-
     reg  [7:0]  blink_cnt = 8'd0;
+    reg         tp_vs_d   = 1'b0;
 
     //==========================================================================
     // 4) 本地源 active-only 像素流
@@ -227,21 +220,21 @@ module top
     wire        rx_pix_ready;
 
     //==========================================================================
-    // 9) 显示侧 frame aligner / 链路状态同步
+    // 9) 显示侧：单 timing + 一次性 stream enable
     //==========================================================================
-    reg channel_up_meta_pclk = 1'b0;
-    reg channel_up_pclk      = 1'b0;
-    reg channel_up_pclk_d    = 1'b0;
+    reg channel_up_meta_pclk    = 1'b0;
+    reg channel_up_pclk         = 1'b0;
+    reg channel_up_pclk_d       = 1'b0;
 
-    reg rx_disp_locked       = 1'b0;
+    reg rx_stream_enable_pclk   = 1'b0;
 
     wire channel_down_pulse_pclk;
     assign channel_down_pulse_pclk = channel_up_pclk_d & (~channel_up_pclk);
 
-    // 未锁定前持续消费，直到看到 rx_pix_sof
-    // 锁定后只在 HDMI active 区消费
-    assign rx_pix_ready = channel_up_pclk &&
-                          (rx_disp_locked ? hdmi_de : 1'b1);
+    // 进入流模式前：持续消费，直到抓到一次 rx_pix_sof
+    // 进入流模式后：只在本地 active 区消费
+    assign rx_pix_ready = channel_up_pclk &
+                          (rx_stream_enable_pclk ? tp_de : 1'b1);
 
     //==========================================================================
     // 10) HDMI 输出颜色选择
@@ -252,9 +245,11 @@ module top
     assign red_flash_rgb = blink_cnt[5] ? 24'hFF0000 : 24'h200000;
 
     assign hdmi_rgb888 =
-        hdmi_de ?
+        tp_de ?
             (channel_up_pclk ?
-                (rx_pix_valid ? rx_pix_data : 24'h000000)
+                (rx_stream_enable_pclk ?
+                    (rx_pix_valid ? rx_pix_data : 24'h000000)
+                    : 24'h000000)
                 : red_flash_rgb)
             : 24'h000000;
 
@@ -268,7 +263,7 @@ module top
     assign led_o[0] = cfg_pll_lock;
     assign led_o[1] = gt_pll_ok;
     assign led_o[2] = channel_up;
-    assign led_o[3] = rx_disp_locked;
+    assign led_o[3] = rx_stream_enable_pclk;
 
     assign test_o[0] = dbg_tx_err_sticky;
     assign test_o[1] = dbg_rx_err_sticky;
@@ -276,7 +271,38 @@ module top
     assign test_o[3] = tx_pack_align_err;
 
     //==========================================================================
-    // 12) RoraLink 时钟 / 复位
+    // 12) pixel 域状态
+    //==========================================================================
+    always @(posedge pixel_clk or negedge pixel_rst_n) begin
+        if (!pixel_rst_n) begin
+            blink_cnt            <= 8'd0;
+            tp_vs_d              <= 1'b0;
+            channel_up_meta_pclk <= 1'b0;
+            channel_up_pclk      <= 1'b0;
+            channel_up_pclk_d    <= 1'b0;
+            rx_stream_enable_pclk<= 1'b0;
+        end
+        else begin
+            tp_vs_d <= tp_vs;
+            if (tp_vs_d && !tp_vs)
+                blink_cnt <= blink_cnt + 8'd1;
+
+            // CDC
+            channel_up_meta_pclk <= channel_up;
+            channel_up_pclk      <= channel_up_meta_pclk;
+            channel_up_pclk_d    <= channel_up_pclk;
+
+            if (channel_down_pulse_pclk) begin
+                rx_stream_enable_pclk <= 1'b0;
+            end
+            else if (channel_up_pclk && rx_pix_valid && rx_pix_sof) begin
+                rx_stream_enable_pclk <= 1'b1;
+            end
+        end
+    end
+
+    //==========================================================================
+    // 13) RoraLink 时钟 / 复位
     //==========================================================================
     assign sys_clk         = gt_pcs_tx_clk[0];
     assign gt_reset        = 1'b0;
@@ -308,7 +334,7 @@ module top
     );
 
     //==========================================================================
-    // 13) SerDes_Top（frame mode）
+    // 14) SerDes_Top（frame mode）
     //==========================================================================
     SerDes_Top u_SerDes_Top
     (
@@ -355,7 +381,7 @@ module top
     );
 
     //==========================================================================
-    // 14) pixel clock / ADV7513 / 本地测试图
+    // 15) pixel clock / ADV7513 / 本地测试图
     //==========================================================================
     Gowin_PLL_pixel u_pixel_pll
     (
@@ -410,7 +436,6 @@ module top
         .SDA        (IO_adv7513_sda)
     );
 
-    // 本地 720p color bar 源
     testpattern testpattern_inst0
     (
         .I_pxl_clk   (pixel_clk),
@@ -440,64 +465,10 @@ module top
         .O_data_b    (tp_b)
     );
 
-    //==========================================================================
-    // 15) HDMI 输出 timing 发生器（可被 rx_pix_sof 重对齐）
-    //==========================================================================
-    assign hdmi_hs = (hdmi_h_cnt < C_H_SYNC) ? 1'b1 : 1'b0;
-    assign hdmi_vs = (hdmi_v_cnt < C_V_SYNC) ? 1'b1 : 1'b0;
-    assign hdmi_de = (hdmi_h_cnt >= ACT_H_START) && (hdmi_h_cnt < ACT_H_END) &&
-                     (hdmi_v_cnt >= ACT_V_START) && (hdmi_v_cnt < ACT_V_END);
-
-    always @(posedge pixel_clk or negedge pixel_rst_n) begin
-        if (!pixel_rst_n) begin
-            hdmi_h_cnt          <= 16'd0;
-            hdmi_v_cnt          <= 16'd0;
-            blink_cnt           <= 8'd0;
-            channel_up_meta_pclk<= 1'b0;
-            channel_up_pclk     <= 1'b0;
-            channel_up_pclk_d   <= 1'b0;
-            rx_disp_locked      <= 1'b0;
-        end
-        else begin
-            // CDC
-            channel_up_meta_pclk <= channel_up;
-            channel_up_pclk      <= channel_up_meta_pclk;
-            channel_up_pclk_d    <= channel_up_pclk;
-
-            // 链路掉线则丢锁
-            if (channel_down_pulse_pclk)
-                rx_disp_locked <= 1'b0;
-
-            // 优先处理对齐：看到一帧开始，就把 HDMI timing 重对齐到 active 左上角
-            if (channel_up_pclk && rx_pix_sof) begin
-                hdmi_h_cnt     <= ACT_H_START;
-                hdmi_v_cnt     <= ACT_V_START;
-                rx_disp_locked <= 1'b1;
-            end
-            else begin
-                // 正常 free-run timing
-                if (hdmi_h_cnt == (C_H_TOTAL - 1)) begin
-                    hdmi_h_cnt <= 16'd0;
-
-                    if (hdmi_v_cnt == (C_V_TOTAL - 1)) begin
-                        hdmi_v_cnt <= 16'd0;
-                        blink_cnt  <= blink_cnt + 8'd1;
-                    end
-                    else begin
-                        hdmi_v_cnt <= hdmi_v_cnt + 16'd1;
-                    end
-                end
-                else begin
-                    hdmi_h_cnt <= hdmi_h_cnt + 16'd1;
-                end
-            end
-        end
-    end
-
     assign O_adv7513_data = hdmi_rgb888;
-    assign O_adv7513_vs   = hdmi_vs;
-    assign O_adv7513_hs   = hdmi_hs;
-    assign O_adv7513_de   = hdmi_de;
+    assign O_adv7513_vs   = tp_vs;
+    assign O_adv7513_hs   = tp_hs;
+    assign O_adv7513_de   = tp_de;
     assign O_adv7513_clk  = pixel_clk;
 
     //==========================================================================
