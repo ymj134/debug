@@ -35,6 +35,8 @@
         <File path="src/top.v" type="file.verilog" enable="1"/>
         <File path="src/tx_rgb888_packer_v1_0.v" type="file.verilog" enable="1"/>
         <File path="src/uart_to_bus/uart_to_bus.v" type="file.verilog" enable="1"/>
+        <File path="src/video_symbol_packer_v1.v" type="file.verilog" enable="1"/>
+        <File path="src/video_symbol_unpacker_v1.v" type="file.verilog" enable="1"/>
         <File path="src/top.cst" type="file.cst" enable="1"/>
         <File path="src/top.sdc" type="file.sdc" enable="1"/>
         <File path="src/fpga_project.rao" type="file.gao" enable="0"/>

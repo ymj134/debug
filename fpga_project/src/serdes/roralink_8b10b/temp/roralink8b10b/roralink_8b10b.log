@@ -508,7 +508,6 @@ Back to file 'D:\Gowin\Gowin_V1.9.12_x64\IDE\ipcore\SERDES_IP\IPlib\RORALINK8B10
 Compiling module 'RoraLink_8B10B_Top'("D:\Gowin\Gowin_V1.9.12_x64\IDE\ipcore\SERDES_IP\IPlib\RORALINK8B10B\data\RoraLink_8B10B_Top.v":6)
 Compiling module '**'("D:\Gowin\Gowin_V1.9.12_x64\IDE\ipcore\SERDES_IP\IPlib\RORALINK8B10B\data\RoraLink_8B10B_Core_encryption.v":44208)
 WARN  (EX1998) : Net '**' does not have a driver("D:\Gowin\Gowin_V1.9.12_x64\IDE\ipcore\SERDES_IP\IPlib\RORALINK8B10B\data\RoraLink_8B10B_Core_encryption.v":44208)
-WARN  (EX3791) : Expression size ** truncated to fit in target size **("D:\Gowin\Gowin_V1.9.12_x64\IDE\ipcore\SERDES_IP\IPlib\RORALINK8B10B\data\RoraLink_8B10B_Core_encryption.v":44208)
 WARN  (EX2565) : Input '**' on this instance is undriven. Assigning to 0, simulation mismatch possible. Please assign the input or remove the declaration("D:\Gowin\Gowin_V1.9.12_x64\IDE\ipcore\SERDES_IP\IPlib\RORALINK8B10B\data\RoraLink_8B10B_Core_encryption.v":44208)
 NOTE  (EX0101) : Current top module is "RoraLink_8B10B_Top"
 [5%] Running netlist conversion ...
@@ -538,6 +537,7 @@ Running technical mapping ...
 [80%] Tech-Mapping Phase 3 completed
 [90%] Tech-Mapping Phase 4 completed
 WARN  (NL0002) : The module "~RoraLink_8B10B_chbond_count_dec_4byte.RoraLink_8B10B_Top" instantiated to "u_RoraLink_8B10B_chbond_count_dec_4byte" is swept in optimizing("D:\Gowin\Gowin_V1.9.12_x64\IDE\ipcore\SERDES_IP\IPlib\RORALINK8B10B\data\RoraLink_8B10B_Core_encryption.v":44208)
+WARN  (NL0002) : The module "~ll_to_axi.RoraLink_8B10B_Top" instantiated to "u_data_ll_to_axi" is swept in optimizing("D:\Gowin\Gowin_V1.9.12_x64\IDE\ipcore\SERDES_IP\IPlib\RORALINK8B10B\data\RoraLink_8B10B_Core_encryption.v":44208)
 [95%] Generate netlist file "E:\ymj_project\serdes\GW138K_sfp_debug\fpga_project\src\serdes\roralink_8b10b\temp\roralink8b10b\roralink_8b10b.vg" completed
 Generate template file "E:\ymj_project\serdes\GW138K_sfp_debug\fpga_project\src\serdes\roralink_8b10b\temp\roralink8b10b\roralink_8b10b_tmp.v" completed
 [100%] Generate report file "E:\ymj_project\serdes\GW138K_sfp_debug\fpga_project\src\serdes\roralink_8b10b\temp\roralink8b10b\roralink_8b10b_syn.rpt.html" completed
