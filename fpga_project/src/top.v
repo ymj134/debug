@@ -2,23 +2,40 @@
 
 /*********************************************************************************
 * Module       : top
-* Style tag    : top_full_timing_stream_v1
+* Style tag    : top_full_timing_stream_uart_v1
 * Description  :
-*   720p60 full-timing stream loopback:
+*   720p60 full-timing video stream + high-priority UART user-data stream
 *
+* Video path:
 *   local color bar (tp_vs/tp_hs/tp_de/tp_rgb)
 *      -> video_symbol_packer_v1
-*      -> TX async FIFO
-*      -> RoraLink 8b10b streaming mode
-*      -> RX async FIFO
+*      -> TX_VIDEO async FIFO
+*      -> stream_mux_qos_v1
+*      -> RoraLink 8b10b streaming
+*      -> stream_demux_v1
+*      -> RX_VIDEO async FIFO
 *      -> video_symbol_unpacker_v1
 *      -> HDMI
 *
+* UART user-data path:
+*   rx_i (UART RX)
+*      -> uart_rx_byte_v1
+*      -> uart_word_packer_v1
+*      -> TX_CTRL sync FIFO
+*      -> stream_mux_qos_v1
+*      -> RoraLink 8b10b streaming
+*      -> stream_demux_v1
+*      -> RX_CTRL sync FIFO
+*      -> uart_word_unpacker_v1
+*      -> uart_tx_byte_v1
+*      -> tx_o (UART TX)
+*
 * Notes:
 *   1) pixel_clk = 74.25MHz
-*   2) HDMI 在未锁流前输出本地 720p 黑屏 timing
-*   3) 链路起来后，先预填充 RX FIFO，再开始消费返回流
-*   4) 观察到返回流的 VS 上升沿后，切到返回 timing+rgb 显示
+*   2) sys_clk 假设约为 78.125MHz（line rate 3.125Gbps / 40）
+*   3) UART 默认 115200 baud，对应 UART_CLKS_PER_BIT = 678
+*   4) HDMI 在未锁流前输出本地 720p 黑屏 timing
+*   5) 用户数据默认高优先级，但带视频高水位保护，避免视频被饿死
 *********************************************************************************/
 
 module top
@@ -29,8 +46,8 @@ module top
     output          sfp1_tx_disable_o,
     output          sfp2_tx_disable_o,
 
-    input           rx_i,
-    output          tx_o,
+    input           rx_i,               // UART RX
+    output          tx_o,               // UART TX
 
     output [3:0]    test_o,
     output [3:0]    led_o,
@@ -65,8 +82,15 @@ module top
     localparam [15:0] C_V_BPORCH = 16'd20;
     localparam [15:0] C_V_RES    = 16'd720;
 
-    // RX 启动前预填充时间（pixel_clk 周期）
+    // RX 视频启动前预填充时间（pixel_clk 周期）
     localparam [15:0] RX_PREFILL_CYCLES = 16'd1024;
+
+    // UART 参数（sys_clk≈78.125MHz, baud=115200 -> 78125000/115200≈678）
+    localparam integer UART_CLKS_PER_BIT = 678;
+
+    // 控制 FIFO 深度参数
+    localparam integer CTRL_FIFO_DEPTH  = 64;
+    localparam integer CTRL_FIFO_AW     = 6;
 
     //==========================================================================
     // 1) RoraLink streaming 用户接口
@@ -86,7 +110,7 @@ module top
     //==========================================================================
     // 2) 时钟 / 复位 / GT 状态
     //==========================================================================
-    wire                  sys_clk /* synthesis syn_keep=1 */;
+    wire                  sys_clk;
     wire                  sys_rst;
     wire                  cfg_clk;
     wire                  cfg_pll_lock;
@@ -126,32 +150,86 @@ module top
     wire [7:0]  tp_b;
 
     //==========================================================================
-    // 4) TX: full timing symbol packer -> TX FIFO
+    // 4) TX: full timing symbol packer -> TX_VIDEO FIFO
     //==========================================================================
-    wire [31:0] tx_stream_word_data;
-    wire        tx_stream_word_valid;
-    wire        tx_stream_overflow_sticky;
+    wire [31:0] tx_video_word_data;
+    wire        tx_video_word_valid;
+    wire        tx_video_overflow_sticky;
 
-    wire [35:0] tx_fifo_din;
-    wire [35:0] tx_fifo_dout;
-    wire        tx_fifo_wr_en;
-    wire        tx_fifo_rd_en;
-    wire        tx_fifo_empty;
-    wire        tx_fifo_full;
+    wire [35:0] tx_video_fifo_din;
+    wire [35:0] tx_video_fifo_dout;
+    wire        tx_video_fifo_wr_en;
+    wire        tx_video_fifo_rd_en;
+    wire        tx_video_fifo_empty;
+    wire        tx_video_fifo_full;
+    wire [12:0] tx_video_fifo_rnum;
 
-    assign tx_fifo_din   = {4'b0000, tx_stream_word_data};
-    assign tx_fifo_wr_en = tx_stream_word_valid & (~tx_fifo_full);
+    assign tx_video_fifo_din   = {4'b0000, tx_video_word_data};
+    assign tx_video_fifo_wr_en = tx_video_word_valid & (~tx_video_fifo_full);
 
     //==========================================================================
-    // 5) RX: RX FIFO -> full timing symbol unpacker
+    // 5) TX: UART RX -> uart_word_packer -> TX_CTRL FIFO
     //==========================================================================
-    wire [35:0] rx_fifo_din;
-    wire [35:0] rx_fifo_dout;
-    wire        rx_fifo_wr_en;
-    wire        rx_fifo_rd_en;
-    wire        rx_fifo_empty;
-    wire        rx_fifo_full;
+    wire [7:0]  uart_rx_byte;
+    wire        uart_rx_byte_valid;
 
+    wire [31:0] tx_ctrl_word_data;
+    wire        tx_ctrl_word_valid;
+    wire [7:0]  tx_ctrl_dbg_seq;
+    wire        tx_ctrl_overflow_sticky_from_packer;
+
+    wire [31:0] tx_ctrl_fifo_dout;
+    wire        tx_ctrl_fifo_empty;
+    wire        tx_ctrl_fifo_full;
+    wire        tx_ctrl_fifo_wr_en;
+    wire        tx_ctrl_fifo_rd_en;
+    wire [31:0] tx_ctrl_fifo_din;
+
+    assign tx_ctrl_fifo_din   = tx_ctrl_word_data;
+    assign tx_ctrl_fifo_wr_en = tx_ctrl_word_valid & (~tx_ctrl_fifo_full);
+
+    //==========================================================================
+    // 6) TX 复用：video + ctrl -> 单路 streaming TX
+    //==========================================================================
+    wire [31:0] mux_tx_data;
+    wire        mux_tx_valid;
+
+    wire        mux_dbg_sel_video;
+    wire        mux_dbg_sel_ctrl;
+    wire [7:0]  mux_dbg_video_burst_left;
+    wire        mux_dbg_video_force_mode;
+
+    //==========================================================================
+    // 7) RX 解复用：单路 streaming RX -> RX_VIDEO FIFO + RX_CTRL FIFO
+    //==========================================================================
+    wire [31:0] rx_video_fifo_din_32;
+    wire        rx_video_fifo_wr_en;
+
+    wire [31:0] rx_ctrl_fifo_din;
+    wire        rx_ctrl_fifo_wr_en;
+    wire        rx_ctrl_fifo_empty;
+    wire        rx_ctrl_fifo_full;
+    wire [31:0] rx_ctrl_fifo_dout;
+    wire        rx_ctrl_fifo_rd_en;
+
+    wire        rx_video_overflow_sticky;
+    wire        rx_ctrl_overflow_sticky;
+
+    wire        demux_dbg_is_video;
+    wire        demux_dbg_is_ctrl;
+
+    // RX_VIDEO async FIFO（沿用你现有 36-bit FIFO）
+    wire [35:0] rx_video_fifo_din;
+    wire [35:0] rx_video_fifo_dout;
+    wire        rx_video_fifo_empty;
+    wire        rx_video_fifo_full;
+    wire        rx_video_fifo_rd_en;
+
+    assign rx_video_fifo_din = {4'b0000, rx_video_fifo_din_32};
+
+    //==========================================================================
+    // 8) RX: video_symbol_unpacker（pixel_clk 域）
+    //==========================================================================
     wire        rx_sym_valid;
     wire        rx_sym_vs;
     wire        rx_sym_hs;
@@ -160,7 +238,23 @@ module top
     wire        rx_stream_underflow_sticky;
 
     //==========================================================================
-    // 6) pixel 域流控 / 锁流
+    // 9) RX: UART control stream -> uart_word_unpacker -> UART TX
+    //==========================================================================
+    wire [7:0]  uart_tx_byte_from_link;
+    wire        uart_tx_byte_valid_from_link;
+    wire        uart_tx_ready;
+
+    wire [7:0]  uart_rx_link_last_seq;
+    wire [7:0]  uart_rx_link_expected_seq;
+    wire        uart_rx_type_err_sticky;
+    wire        uart_rx_channel_err_sticky;
+    wire        uart_rx_crc_err_sticky;
+    wire        uart_rx_seq_err_sticky;
+
+    wire        uart_tx_busy;
+
+    //==========================================================================
+    // 10) pixel 域流控 / 锁流
     //==========================================================================
     reg channel_up_meta_pclk  = 1'b0;
     reg channel_up_pclk       = 1'b0;
@@ -176,12 +270,16 @@ module top
     wire channel_down_pulse_pclk;
     wire rx_vs_rise_pclk;
 
-    assign channel_up_rise_pclk   = (~channel_up_pclk_d) & channel_up_pclk;
+    assign channel_up_rise_pclk    = (~channel_up_pclk_d) & channel_up_pclk;
     assign channel_down_pulse_pclk = channel_up_pclk_d & (~channel_up_pclk);
-    assign rx_vs_rise_pclk        = (~rx_sym_vs_d) & rx_sym_vs & rx_sym_valid;
+    assign rx_vs_rise_pclk         = (~rx_sym_vs_d) & rx_sym_vs & rx_sym_valid;
+
+    // 只有预填充完成后才开始消费 RX_VIDEO FIFO
+    wire rx_video_ready_pclk;
+    assign rx_video_ready_pclk = rx_read_enable_pclk;
 
     //==========================================================================
-    // 7) HDMI 输出选择
+    // 11) HDMI 输出选择
     //==========================================================================
     wire        hdmi_vs;
     wire        hdmi_hs;
@@ -189,31 +287,31 @@ module top
     wire [23:0] hdmi_rgb;
 
     // 未锁流前：输出本地 720p timing + 黑屏
-    // 锁流后：输出返回 timing + 返回 rgb
+    // 锁流后：输出返回 timing + rgb
     assign hdmi_vs  = rx_stream_enable_pclk ? rx_sym_vs  : tp_vs;
     assign hdmi_hs  = rx_stream_enable_pclk ? rx_sym_hs  : tp_hs;
     assign hdmi_de  = rx_stream_enable_pclk ? rx_sym_de  : tp_de;
     assign hdmi_rgb = rx_stream_enable_pclk ? rx_sym_rgb : 24'h000000;
 
     //==========================================================================
-    // 8) 固定连接 / LED / TEST
+    // 12) 固定连接 / LED / TEST
     //==========================================================================
     assign sfp1_tx_disable_o = 1'b0;
     assign sfp2_tx_disable_o = 1'b0;
-    assign tx_o              = 1'b1;
 
     assign led_o[0] = cfg_pll_lock;
     assign led_o[1] = gt_pll_ok;
     assign led_o[2] = channel_up;
     assign led_o[3] = rx_stream_enable_pclk;
 
-    assign test_o[0] = tx_stream_overflow_sticky;
+    assign test_o[0] = tx_video_overflow_sticky;
     assign test_o[1] = rx_stream_underflow_sticky;
-    assign test_o[2] = hard_err;
-    assign test_o[3] = soft_err;
+    assign test_o[2] = tx_ctrl_overflow_sticky_from_packer;
+    assign test_o[3] = uart_rx_crc_err_sticky | uart_rx_seq_err_sticky |
+                       uart_rx_type_err_sticky | uart_rx_channel_err_sticky;
 
     //==========================================================================
-    // 9) 时钟 / 复位
+    // 13) 时钟 / 复位
     //==========================================================================
     assign sys_clk         = gt_pcs_tx_clk[0];
     assign gt_reset        = 1'b0;
@@ -261,7 +359,7 @@ module top
     );
 
     //==========================================================================
-    // 10) ADV7513 / 本地 720p 源
+    // 14) ADV7513 / 本地 720p 测试图
     //==========================================================================
     wire        TX_EN_7513;
     wire [2:0]  WADDR_7513;
@@ -330,7 +428,7 @@ module top
     );
 
     //==========================================================================
-    // 11) SerDes_Top（streaming mode）
+    // 15) SerDes_Top（streaming mode）
     //==========================================================================
     SerDes_Top u_SerDes_Top
     (
@@ -362,7 +460,7 @@ module top
     );
 
     //==========================================================================
-    // 12) TX: full timing symbol packer
+    // 16) 视频发送端：打包完整 timing -> TX_VIDEO FIFO
     //==========================================================================
     video_symbol_packer_v1 u_video_symbol_packer_v1
     (
@@ -375,40 +473,125 @@ module top
         .i_de               (tp_de),
         .i_rgb              ({tp_r, tp_g, tp_b}),
 
-        .i_word_ready       (~tx_fifo_full),
+        .i_word_ready       (~tx_video_fifo_full),
 
-        .o_word_data        (tx_stream_word_data),
-        .o_word_valid       (tx_stream_word_valid),
-
-        .o_overflow_sticky  (tx_stream_overflow_sticky)
+        .o_word_data        (tx_video_word_data),
+        .o_word_valid       (tx_video_word_valid),
+        .o_overflow_sticky  (tx_video_overflow_sticky)
     );
 
     //==========================================================================
-    // 13) TX FIFO -> streaming TX
+    // 17) UART 发送到链路：UART RX -> 控制字 -> TX_CTRL FIFO
     //==========================================================================
-    assign user_tx_data  = tx_fifo_dout[31:0];
-    assign user_tx_valid = ~tx_fifo_empty;
-    assign tx_fifo_rd_en = user_tx_ready & (~tx_fifo_empty);
+    uart_rx_byte_v1
+    #(
+        .CLKS_PER_BIT(UART_CLKS_PER_BIT)
+    )
+    u_uart_rx_byte_v1
+    (
+        .i_clk          (sys_clk),
+        .i_rst_n        (~sys_rst),
+        .i_uart_rx      (rx_i),
+
+        .o_byte_data    (uart_rx_byte),
+        .o_byte_valid   (uart_rx_byte_valid)
+    );
+
+    uart_word_packer_v1
+    #(
+        .CHANNEL_ID(3'b000)
+    )
+    u_uart_word_packer_v1
+    (
+        .i_clk              (sys_clk),
+        .i_rst_n            (~sys_rst),
+
+        .i_byte_data        (uart_rx_byte),
+        .i_byte_valid       (uart_rx_byte_valid),
+
+        .i_word_ready       (~tx_ctrl_fifo_full),
+
+        .o_word_data        (tx_ctrl_word_data),
+        .o_word_valid       (tx_ctrl_word_valid),
+
+        .o_dbg_seq          (tx_ctrl_dbg_seq),
+        .o_overflow_sticky  (tx_ctrl_overflow_sticky_from_packer)
+    );
 
     //==========================================================================
-    // 14) RX streaming -> RX FIFO
+    // 18) TX 复用：ctrl 高优先级 + 视频高水位保护
     //==========================================================================
-    assign rx_fifo_din   = {4'b0000, user_rx_data};
-    assign rx_fifo_wr_en = user_rx_valid & (~rx_fifo_full);
+    stream_mux_qos_v1
+    #(
+        .VIDEO_HIGH_WATERMARK(13'd1024),
+        .VIDEO_BURST_LEN     (8'd64)
+    )
+    u_stream_mux_qos_v1
+    (
+        .i_clk               (sys_clk),
+        .i_rst_n             (~sys_rst),
+
+        .i_video_fifo_dout   (tx_video_fifo_dout[31:0]),
+        .i_video_fifo_empty  (tx_video_fifo_empty),
+        .i_video_fifo_rnum   (tx_video_fifo_rnum),
+        .o_video_fifo_rd_en  (tx_video_fifo_rd_en),
+
+        .i_ctrl_fifo_dout    (tx_ctrl_fifo_dout),
+        .i_ctrl_fifo_empty   (tx_ctrl_fifo_empty),
+        .o_ctrl_fifo_rd_en   (tx_ctrl_fifo_rd_en),
+
+        .o_mux_data          (mux_tx_data),
+        .o_mux_valid         (mux_tx_valid),
+        .i_mux_ready         (user_tx_ready),
+
+        .o_dbg_sel_video     (mux_dbg_sel_video),
+        .o_dbg_sel_ctrl      (mux_dbg_sel_ctrl),
+        .o_dbg_video_burst_left(mux_dbg_video_burst_left),
+        .o_dbg_video_force_mode(mux_dbg_video_force_mode)
+    );
+
+    assign user_tx_data  = mux_tx_data;
+    assign user_tx_valid = mux_tx_valid;
 
     //==========================================================================
-    // 15) RX unpacker
+    // 19) RX 解复用：视频 -> RX_VIDEO FIFO，控制 -> RX_CTRL FIFO
+    //==========================================================================
+    stream_demux_v1 u_stream_demux_v1
+    (
+        .i_clk                  (sys_clk),
+        .i_rst_n                (~sys_rst),
+
+        .i_rx_data              (user_rx_data),
+        .i_rx_valid             (user_rx_valid),
+
+        .o_video_fifo_din       (rx_video_fifo_din_32),
+        .o_video_fifo_wr_en     (rx_video_fifo_wr_en),
+        .i_video_fifo_full      (rx_video_fifo_full),
+
+        .o_ctrl_fifo_din        (rx_ctrl_fifo_din),
+        .o_ctrl_fifo_wr_en      (rx_ctrl_fifo_wr_en),
+        .i_ctrl_fifo_full       (rx_ctrl_fifo_full),
+
+        .o_video_overflow_sticky(rx_video_overflow_sticky),
+        .o_ctrl_overflow_sticky (rx_ctrl_overflow_sticky),
+
+        .o_dbg_is_video         (demux_dbg_is_video),
+        .o_dbg_is_ctrl          (demux_dbg_is_ctrl)
+    );
+
+    //==========================================================================
+    // 20) RX 视频恢复：RX_VIDEO FIFO -> HDMI
     //==========================================================================
     video_symbol_unpacker_v1 u_video_symbol_unpacker_v1
     (
         .i_clk              (pixel_clk),
         .i_rst_n            (pixel_rst_n),
 
-        .i_fifo_dout        (rx_fifo_dout[31:0]),
-        .i_fifo_empty       (rx_fifo_empty),
-        .o_fifo_rd_en       (rx_fifo_rd_en),
+        .i_fifo_dout        (rx_video_fifo_dout[31:0]),
+        .i_fifo_empty       (rx_video_fifo_empty),
+        .o_fifo_rd_en       (rx_video_fifo_rd_en),
 
-        .i_video_ready      (rx_read_enable_pclk),
+        .i_video_ready      (rx_video_ready_pclk),
 
         .o_valid            (rx_sym_valid),
         .o_vs               (rx_sym_vs),
@@ -420,7 +603,53 @@ module top
     );
 
     //==========================================================================
-    // 16) pixel 域：预填充 + VS 锁流
+    // 21) RX 控制恢复：RX_CTRL FIFO -> UART TX
+    //==========================================================================
+    uart_word_unpacker_v1
+    #(
+        .CHANNEL_ID(3'b000)
+    )
+    u_uart_word_unpacker_v1
+    (
+        .i_clk               (sys_clk),
+        .i_rst_n             (~sys_rst),
+
+        .i_fifo_dout         (rx_ctrl_fifo_dout),
+        .i_fifo_empty        (rx_ctrl_fifo_empty),
+        .o_fifo_rd_en        (rx_ctrl_fifo_rd_en),
+
+        .i_byte_ready        (uart_tx_ready),
+        .o_byte_data         (uart_tx_byte_from_link),
+        .o_byte_valid        (uart_tx_byte_valid_from_link),
+
+        .o_dbg_last_seq      (uart_rx_link_last_seq),
+        .o_dbg_expected_seq  (uart_rx_link_expected_seq),
+
+        .o_type_err_sticky   (uart_rx_type_err_sticky),
+        .o_channel_err_sticky(uart_rx_channel_err_sticky),
+        .o_crc_err_sticky    (uart_rx_crc_err_sticky),
+        .o_seq_err_sticky    (uart_rx_seq_err_sticky)
+    );
+
+    uart_tx_byte_v1
+    #(
+        .CLKS_PER_BIT(UART_CLKS_PER_BIT)
+    )
+    u_uart_tx_byte_v1
+    (
+        .i_clk          (sys_clk),
+        .i_rst_n        (~sys_rst),
+
+        .i_byte_data    (uart_tx_byte_from_link),
+        .i_byte_valid   (uart_tx_byte_valid_from_link),
+        .o_byte_ready   (uart_tx_ready),
+
+        .o_uart_tx      (tx_o),
+        .o_busy         (uart_tx_busy)
+    );
+
+    //==========================================================================
+    // 22) pixel 域：预填充 + VS 锁流
     //==========================================================================
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
@@ -435,7 +664,6 @@ module top
             rx_sym_vs_d            <= 1'b0;
         end
         else begin
-            // CDC
             channel_up_meta_pclk <= channel_up;
             channel_up_pclk      <= channel_up_meta_pclk;
             channel_up_pclk_d    <= channel_up_pclk;
@@ -448,7 +676,6 @@ module top
                 rx_stream_enable_pclk <= 1'b0;
             end
             else begin
-                // 先预填充一段时间，再开始消费 RX FIFO
                 if (!rx_read_enable_pclk) begin
                     if (rx_prefill_cnt < RX_PREFILL_CYCLES)
                         rx_prefill_cnt <= rx_prefill_cnt + 16'd1;
@@ -456,7 +683,6 @@ module top
                         rx_read_enable_pclk <= 1'b1;
                 end
 
-                // 开始消费后，观察返回视频流的 VS 上升沿，检测到后切到返回 timing
                 if (rx_read_enable_pclk && rx_vs_rise_pclk)
                     rx_stream_enable_pclk <= 1'b1;
             end
@@ -464,41 +690,96 @@ module top
     end
 
     //==========================================================================
-    // 17) TX / RX async FIFO（沿用你现有 36bit FIFO）
+    // 23) FIFO 实例
     //==========================================================================
+
+    // -------------------------------
+    // TX_VIDEO async FIFO（沿用你现有 36-bit FIFO）
+    // -------------------------------
     fifo_top_tx36x4096 u_fifo_top_tx36x4096
     (
-        .Data           (tx_fifo_din),
+        .Data           (tx_video_fifo_din),
         .Reset          (!resetn_i),
         .WrClk          (pixel_clk),
         .RdClk          (sys_clk),
-        .WrEn           (tx_fifo_wr_en),
-        .RdEn           (tx_fifo_rd_en),
-        .Rnum           (),
+        .WrEn           (tx_video_fifo_wr_en),
+        .RdEn           (tx_video_fifo_rd_en),
+        .Rnum           (tx_video_fifo_rnum),
         .Almost_Empty   (),
         .Almost_Full    (),
-        .Q              (tx_fifo_dout),
-        .Empty          (tx_fifo_empty),
-        .Full           (tx_fifo_full)
+        .Q              (tx_video_fifo_dout),
+        .Empty          (tx_video_fifo_empty),
+        .Full           (tx_video_fifo_full)
     );
 
+    // -------------------------------
+    // RX_VIDEO async FIFO（沿用你现有 36-bit FIFO）
+    // -------------------------------
     fifo_top_rx36x4096 u_fifo_top_rx36x4096
     (
-        .Data           (rx_fifo_din),
+        .Data           (rx_video_fifo_din),
         .Reset          (!resetn_i),
         .WrClk          (sys_clk),
         .RdClk          (pixel_clk),
-        .WrEn           (rx_fifo_wr_en),
-        .RdEn           (rx_fifo_rd_en),
+        .WrEn           (rx_video_fifo_wr_en),
+        .RdEn           (rx_video_fifo_rd_en),
         .Almost_Empty   (),
         .Almost_Full    (),
-        .Q              (rx_fifo_dout),
-        .Empty          (rx_fifo_empty),
-        .Full           (rx_fifo_full)
+        .Q              (rx_video_fifo_dout),
+        .Empty          (rx_video_fifo_empty),
+        .Full           (rx_video_fifo_full)
+    );
+
+    // -------------------------------
+    // TX_CTRL sync FIFO
+    // -------------------------------
+    sync_fifo_fwft_v1
+    #(
+        .DATA_W (32),
+        .DEPTH  (CTRL_FIFO_DEPTH),
+        .ADDR_W (CTRL_FIFO_AW)
+    )
+    u_tx_ctrl_fifo
+    (
+        .i_clk      (sys_clk),
+        .i_rst_n    (~sys_rst),
+
+        .i_wr_en    (tx_ctrl_fifo_wr_en),
+        .i_din      (tx_ctrl_fifo_din),
+        .o_full     (tx_ctrl_fifo_full),
+
+        .i_rd_en    (tx_ctrl_fifo_rd_en),
+        .o_dout     (tx_ctrl_fifo_dout),
+        .o_empty    (tx_ctrl_fifo_empty),
+        .o_count    ()
+    );
+
+    // -------------------------------
+    // RX_CTRL sync FIFO
+    // -------------------------------
+    sync_fifo_fwft_v1
+    #(
+        .DATA_W (32),
+        .DEPTH  (CTRL_FIFO_DEPTH),
+        .ADDR_W (CTRL_FIFO_AW)
+    )
+    u_rx_ctrl_fifo
+    (
+        .i_clk      (sys_clk),
+        .i_rst_n    (~sys_rst),
+
+        .i_wr_en    (rx_ctrl_fifo_wr_en),
+        .i_din      (rx_ctrl_fifo_din),
+        .o_full     (rx_ctrl_fifo_full),
+
+        .i_rd_en    (rx_ctrl_fifo_rd_en),
+        .o_dout     (rx_ctrl_fifo_dout),
+        .o_empty    (rx_ctrl_fifo_empty),
+        .o_count    ()
     );
 
     //==========================================================================
-    // 18) HDMI 输出
+    // 24) HDMI 输出
     //==========================================================================
     assign O_adv7513_clk  = pixel_clk;
     assign O_adv7513_vs   = hdmi_vs;
@@ -534,5 +815,299 @@ always @(posedge i_clk1) begin
         o_rst1 <= 1'b0;
     end
 end
+
+endmodule
+
+
+//==============================================================================
+// sync_fifo_fwft_v1
+// Simple synchronous FWFT / Show-Ahead FIFO
+//==============================================================================
+module sync_fifo_fwft_v1
+#(
+    parameter integer DATA_W = 32,
+    parameter integer DEPTH  = 64,
+    parameter integer ADDR_W = 6
+)
+(
+    input                   i_clk,
+    input                   i_rst_n,
+
+    input                   i_wr_en,
+    input      [DATA_W-1:0] i_din,
+    output                  o_full,
+
+    input                   i_rd_en,
+    output     [DATA_W-1:0] o_dout,
+    output                  o_empty,
+    output     [ADDR_W:0]   o_count
+);
+
+    reg [DATA_W-1:0] mem [0:DEPTH-1];
+    reg [ADDR_W-1:0] wptr;
+    reg [ADDR_W-1:0] rptr;
+    reg [ADDR_W:0]   count;
+
+    wire do_write = i_wr_en && !o_full;
+    wire do_read  = i_rd_en && !o_empty;
+
+    assign o_empty = (count == { (ADDR_W+1){1'b0} });
+    assign o_full  = (count == DEPTH[ADDR_W:0]);
+    assign o_count = count;
+    assign o_dout  = mem[rptr];
+
+    always @(posedge i_clk or negedge i_rst_n) begin
+        if (!i_rst_n) begin
+            wptr  <= {ADDR_W{1'b0}};
+            rptr  <= {ADDR_W{1'b0}};
+            count <= {(ADDR_W+1){1'b0}};
+        end
+        else begin
+            if (do_write) begin
+                mem[wptr] <= i_din;
+                wptr      <= wptr + {{(ADDR_W-1){1'b0}},1'b1};
+            end
+
+            if (do_read) begin
+                rptr <= rptr + {{(ADDR_W-1){1'b0}},1'b1};
+            end
+
+            case ({do_write, do_read})
+                2'b10: count <= count + {{ADDR_W{1'b0}},1'b1};
+                2'b01: count <= count - {{ADDR_W{1'b0}},1'b1};
+                default: count <= count;
+            endcase
+        end
+    end
+
+endmodule
+
+
+//==============================================================================
+// uart_rx_byte_v1
+// UART RX -> byte pulse
+//==============================================================================
+module uart_rx_byte_v1
+#(
+    parameter integer CLKS_PER_BIT = 678
+)
+(
+    input           i_clk,
+    input           i_rst_n,
+    input           i_uart_rx,
+
+    output reg [7:0] o_byte_data,
+    output reg       o_byte_valid
+);
+
+    localparam [2:0]
+        S_IDLE  = 3'd0,
+        S_START = 3'd1,
+        S_DATA  = 3'd2,
+        S_STOP  = 3'd3;
+
+    reg [2:0]  state;
+    reg [15:0] clk_cnt;
+    reg [2:0]  bit_idx;
+    reg [7:0]  data_reg;
+
+    reg rx_meta, rx_sync;
+
+    always @(posedge i_clk or negedge i_rst_n) begin
+        if (!i_rst_n) begin
+            rx_meta <= 1'b1;
+            rx_sync <= 1'b1;
+        end
+        else begin
+            rx_meta <= i_uart_rx;
+            rx_sync <= rx_meta;
+        end
+    end
+
+    always @(posedge i_clk or negedge i_rst_n) begin
+        if (!i_rst_n) begin
+            state      <= S_IDLE;
+            clk_cnt    <= 16'd0;
+            bit_idx    <= 3'd0;
+            data_reg   <= 8'd0;
+            o_byte_data<= 8'd0;
+            o_byte_valid <= 1'b0;
+        end
+        else begin
+            o_byte_valid <= 1'b0;
+
+            case (state)
+                S_IDLE: begin
+                    clk_cnt <= 16'd0;
+                    bit_idx <= 3'd0;
+                    if (!rx_sync) begin
+                        state   <= S_START;
+                        clk_cnt <= (CLKS_PER_BIT >> 1);
+                    end
+                end
+
+                S_START: begin
+                    if (clk_cnt == 16'd0) begin
+                        if (!rx_sync) begin
+                            state   <= S_DATA;
+                            clk_cnt <= CLKS_PER_BIT - 1;
+                            bit_idx <= 3'd0;
+                        end
+                        else begin
+                            state <= S_IDLE;
+                        end
+                    end
+                    else begin
+                        clk_cnt <= clk_cnt - 16'd1;
+                    end
+                end
+
+                S_DATA: begin
+                    if (clk_cnt == 16'd0) begin
+                        data_reg[bit_idx] <= rx_sync;
+                        clk_cnt <= CLKS_PER_BIT - 1;
+
+                        if (bit_idx == 3'd7) begin
+                            state <= S_STOP;
+                        end
+                        else begin
+                            bit_idx <= bit_idx + 3'd1;
+                        end
+                    end
+                    else begin
+                        clk_cnt <= clk_cnt - 16'd1;
+                    end
+                end
+
+                S_STOP: begin
+                    if (clk_cnt == 16'd0) begin
+                        o_byte_data  <= data_reg;
+                        o_byte_valid <= 1'b1;
+                        state        <= S_IDLE;
+                    end
+                    else begin
+                        clk_cnt <= clk_cnt - 16'd1;
+                    end
+                end
+
+                default: state <= S_IDLE;
+            endcase
+        end
+    end
+
+endmodule
+
+
+//==============================================================================
+// uart_tx_byte_v1
+// byte pulse -> UART TX
+//==============================================================================
+module uart_tx_byte_v1
+#(
+    parameter integer CLKS_PER_BIT = 678
+)
+(
+    input            i_clk,
+    input            i_rst_n,
+
+    input      [7:0] i_byte_data,
+    input            i_byte_valid,
+    output           o_byte_ready,
+
+    output reg       o_uart_tx,
+    output reg       o_busy
+);
+
+    localparam [2:0]
+        S_IDLE  = 3'd0,
+        S_START = 3'd1,
+        S_DATA  = 3'd2,
+        S_STOP  = 3'd3;
+
+    reg [2:0]  state;
+    reg [15:0] clk_cnt;
+    reg [2:0]  bit_idx;
+    reg [7:0]  data_reg;
+
+    assign o_byte_ready = (state == S_IDLE);
+
+    always @(posedge i_clk or negedge i_rst_n) begin
+        if (!i_rst_n) begin
+            state   <= S_IDLE;
+            clk_cnt <= 16'd0;
+            bit_idx <= 3'd0;
+            data_reg<= 8'd0;
+            o_uart_tx <= 1'b1;
+            o_busy    <= 1'b0;
+        end
+        else begin
+            case (state)
+                S_IDLE: begin
+                    o_uart_tx <= 1'b1;
+                    o_busy    <= 1'b0;
+                    clk_cnt   <= 16'd0;
+                    bit_idx   <= 3'd0;
+
+                    if (i_byte_valid) begin
+                        data_reg <= i_byte_data;
+                        state    <= S_START;
+                        o_busy   <= 1'b1;
+                        o_uart_tx<= 1'b0; // start bit
+                        clk_cnt  <= CLKS_PER_BIT - 1;
+                    end
+                end
+
+                S_START: begin
+                    o_busy <= 1'b1;
+                    if (clk_cnt == 16'd0) begin
+                        state   <= S_DATA;
+                        bit_idx <= 3'd0;
+                        o_uart_tx<= data_reg[0];
+                        clk_cnt <= CLKS_PER_BIT - 1;
+                    end
+                    else begin
+                        clk_cnt <= clk_cnt - 16'd1;
+                    end
+                end
+
+                S_DATA: begin
+                    o_busy <= 1'b1;
+                    if (clk_cnt == 16'd0) begin
+                        if (bit_idx == 3'd7) begin
+                            state    <= S_STOP;
+                            o_uart_tx <= 1'b1; // stop bit
+                            clk_cnt  <= CLKS_PER_BIT - 1;
+                        end
+                        else begin
+                            bit_idx   <= bit_idx + 3'd1;
+                            o_uart_tx <= data_reg[bit_idx + 3'd1];
+                            clk_cnt   <= CLKS_PER_BIT - 1;
+                        end
+                    end
+                    else begin
+                        clk_cnt <= clk_cnt - 16'd1;
+                    end
+                end
+
+                S_STOP: begin
+                    o_busy <= 1'b1;
+                    if (clk_cnt == 16'd0) begin
+                        state    <= S_IDLE;
+                        o_uart_tx<= 1'b1;
+                        o_busy   <= 1'b0;
+                    end
+                    else begin
+                        clk_cnt <= clk_cnt - 16'd1;
+                    end
+                end
+
+                default: begin
+                    state    <= S_IDLE;
+                    o_uart_tx<= 1'b1;
+                    o_busy   <= 1'b0;
+                end
+            endcase
+        end
+    end
 
 endmodule
