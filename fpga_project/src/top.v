@@ -2,40 +2,19 @@
 
 /*********************************************************************************
 * Module       : top
-* Style tag    : top_full_timing_stream_uart_v1
+* Style tag    : top_full_timing_stream_uart_v2
 * Description  :
 *   720p60 full-timing video stream + high-priority UART user-data stream
 *
-* Video path:
-*   local color bar (tp_vs/tp_hs/tp_de/tp_rgb)
-*      -> video_symbol_packer_v1
-*      -> TX_VIDEO async FIFO
-*      -> stream_mux_qos_v1
-*      -> RoraLink 8b10b streaming
-*      -> stream_demux_v1
-*      -> RX_VIDEO async FIFO
-*      -> video_symbol_unpacker_v1
-*      -> HDMI
-*
-* UART user-data path:
-*   rx_i (UART RX)
-*      -> uart_rx_byte_v1
-*      -> uart_word_packer_v1
-*      -> TX_CTRL sync FIFO
-*      -> stream_mux_qos_v1
-*      -> RoraLink 8b10b streaming
-*      -> stream_demux_v1
-*      -> RX_CTRL sync FIFO
-*      -> uart_word_unpacker_v1
-*      -> uart_tx_byte_v1
-*      -> tx_o (UART TX)
+* Key change from v1:
+*   1) HDMI 始终使用本地稳定的 tp_vs/tp_hs/tp_de
+*   2) 返回流 rx_sym_vs/rx_sym_hs/rx_sym_de 不再直接驱动显示器
+*   3) rx_sym_vs 只用于锁流；锁流后，仅把返回的 rx_sym_rgb 作为像素内容显示
 *
 * Notes:
 *   1) pixel_clk = 74.25MHz
-*   2) sys_clk 假设约为 78.125MHz（line rate 3.125Gbps / 40）
-*   3) UART 默认 115200 baud，对应 UART_CLKS_PER_BIT = 678
-*   4) HDMI 在未锁流前输出本地 720p 黑屏 timing
-*   5) 用户数据默认高优先级，但带视频高水位保护，避免视频被饿死
+*   2) RoraLink IP 必须是 streaming mode
+*   3) 这版优先解决“偶发黑屏”问题
 *********************************************************************************/
 
 module top
@@ -110,7 +89,7 @@ module top
     //==========================================================================
     // 2) 时钟 / 复位 / GT 状态
     //==========================================================================
-    wire                  sys_clk;
+    wire                  sys_clk/* synthesis syn_keep=1 */;
     wire                  sys_rst;
     wire                  cfg_clk;
     wire                  cfg_pll_lock;
@@ -266,11 +245,9 @@ module top
 
     reg        rx_sym_vs_d = 1'b0;
 
-    wire channel_up_rise_pclk;
     wire channel_down_pulse_pclk;
     wire rx_vs_rise_pclk;
 
-    assign channel_up_rise_pclk    = (~channel_up_pclk_d) & channel_up_pclk;
     assign channel_down_pulse_pclk = channel_up_pclk_d & (~channel_up_pclk);
     assign rx_vs_rise_pclk         = (~rx_sym_vs_d) & rx_sym_vs & rx_sym_valid;
 
@@ -286,12 +263,17 @@ module top
     wire        hdmi_de;
     wire [23:0] hdmi_rgb;
 
-    // 未锁流前：输出本地 720p timing + 黑屏
-    // 锁流后：输出返回 timing + rgb
-    assign hdmi_vs  = rx_stream_enable_pclk ? rx_sym_vs  : tp_vs;
-    assign hdmi_hs  = rx_stream_enable_pclk ? rx_sym_hs  : tp_hs;
-    assign hdmi_de  = rx_stream_enable_pclk ? rx_sym_de  : tp_de;
-    assign hdmi_rgb = rx_stream_enable_pclk ? rx_sym_rgb : 24'h000000;
+    // 关键改动：
+    // HDMI 始终使用本地稳定的 720p timing
+    assign hdmi_vs = tp_vs;
+    assign hdmi_hs = tp_hs;
+    assign hdmi_de = tp_de;
+
+    // 锁流后，仅在本地 active 区、且返回流当前为有效视频符号时，显示返回 RGB
+    // 其余情况黑屏，避免把返回 timing 的毛刺直接送给显示器
+    assign hdmi_rgb =
+        (tp_de && rx_stream_enable_pclk && rx_sym_valid && rx_sym_de) ? rx_sym_rgb
+                                                                      : 24'h000000;
 
     //==========================================================================
     // 12) 固定连接 / LED / TEST
@@ -304,10 +286,10 @@ module top
     assign led_o[2] = channel_up;
     assign led_o[3] = rx_stream_enable_pclk;
 
-    assign test_o[0] = tx_video_overflow_sticky;
-    assign test_o[1] = rx_stream_underflow_sticky;
-    assign test_o[2] = tx_ctrl_overflow_sticky_from_packer;
-    assign test_o[3] = uart_rx_crc_err_sticky | uart_rx_seq_err_sticky |
+    wire test_o0 = tx_video_overflow_sticky;
+    wire test_o1 = rx_stream_underflow_sticky;
+    wire test_o2 = tx_ctrl_overflow_sticky_from_packer;
+    wire test_o3 = uart_rx_crc_err_sticky | uart_rx_seq_err_sticky |
                        uart_rx_type_err_sticky | uart_rx_channel_err_sticky;
 
     //==========================================================================
@@ -580,7 +562,7 @@ module top
     );
 
     //==========================================================================
-    // 20) RX 视频恢复：RX_VIDEO FIFO -> HDMI
+    // 20) RX 视频恢复：RX_VIDEO FIFO -> 本地 timing 下显示 RGB
     //==========================================================================
     video_symbol_unpacker_v1 u_video_symbol_unpacker_v1
     (
@@ -683,6 +665,7 @@ module top
                         rx_read_enable_pclk <= 1'b1;
                 end
 
+                // 仍然用返回流的 VS 上升沿作为“视频返回已稳定”的判据
                 if (rx_read_enable_pclk && rx_vs_rise_pclk)
                     rx_stream_enable_pclk <= 1'b1;
             end
@@ -786,328 +769,5 @@ module top
     assign O_adv7513_hs   = hdmi_hs;
     assign O_adv7513_de   = hdmi_de;
     assign O_adv7513_data = hdmi_rgb;
-
-endmodule
-
-
-//==============================================================================
-// reset_gen
-//==============================================================================
-module reset_gen
-(
-    input           i_clk1,
-    input           i_lock,
-    output reg      o_rst1 = 1'b1
-);
-
-reg [11:0] r_cnt = 12'd0;
-
-always @(posedge i_clk1) begin
-    if (!i_lock) begin
-        r_cnt  <= 12'd0;
-        o_rst1 <= 1'b1;
-    end
-    else if (r_cnt < 12'hfff) begin
-        r_cnt  <= r_cnt + 12'd1;
-        o_rst1 <= 1'b1;
-    end
-    else begin
-        o_rst1 <= 1'b0;
-    end
-end
-
-endmodule
-
-
-//==============================================================================
-// sync_fifo_fwft_v1
-// Simple synchronous FWFT / Show-Ahead FIFO
-//==============================================================================
-module sync_fifo_fwft_v1
-#(
-    parameter integer DATA_W = 32,
-    parameter integer DEPTH  = 64,
-    parameter integer ADDR_W = 6
-)
-(
-    input                   i_clk,
-    input                   i_rst_n,
-
-    input                   i_wr_en,
-    input      [DATA_W-1:0] i_din,
-    output                  o_full,
-
-    input                   i_rd_en,
-    output     [DATA_W-1:0] o_dout,
-    output                  o_empty,
-    output     [ADDR_W:0]   o_count
-);
-
-    reg [DATA_W-1:0] mem [0:DEPTH-1];
-    reg [ADDR_W-1:0] wptr;
-    reg [ADDR_W-1:0] rptr;
-    reg [ADDR_W:0]   count;
-
-    wire do_write = i_wr_en && !o_full;
-    wire do_read  = i_rd_en && !o_empty;
-
-    assign o_empty = (count == { (ADDR_W+1){1'b0} });
-    assign o_full  = (count == DEPTH[ADDR_W:0]);
-    assign o_count = count;
-    assign o_dout  = mem[rptr];
-
-    always @(posedge i_clk or negedge i_rst_n) begin
-        if (!i_rst_n) begin
-            wptr  <= {ADDR_W{1'b0}};
-            rptr  <= {ADDR_W{1'b0}};
-            count <= {(ADDR_W+1){1'b0}};
-        end
-        else begin
-            if (do_write) begin
-                mem[wptr] <= i_din;
-                wptr      <= wptr + {{(ADDR_W-1){1'b0}},1'b1};
-            end
-
-            if (do_read) begin
-                rptr <= rptr + {{(ADDR_W-1){1'b0}},1'b1};
-            end
-
-            case ({do_write, do_read})
-                2'b10: count <= count + {{ADDR_W{1'b0}},1'b1};
-                2'b01: count <= count - {{ADDR_W{1'b0}},1'b1};
-                default: count <= count;
-            endcase
-        end
-    end
-
-endmodule
-
-
-//==============================================================================
-// uart_rx_byte_v1
-// UART RX -> byte pulse
-//==============================================================================
-module uart_rx_byte_v1
-#(
-    parameter integer CLKS_PER_BIT = 678
-)
-(
-    input           i_clk,
-    input           i_rst_n,
-    input           i_uart_rx,
-
-    output reg [7:0] o_byte_data,
-    output reg       o_byte_valid
-);
-
-    localparam [2:0]
-        S_IDLE  = 3'd0,
-        S_START = 3'd1,
-        S_DATA  = 3'd2,
-        S_STOP  = 3'd3;
-
-    reg [2:0]  state;
-    reg [15:0] clk_cnt;
-    reg [2:0]  bit_idx;
-    reg [7:0]  data_reg;
-
-    reg rx_meta, rx_sync;
-
-    always @(posedge i_clk or negedge i_rst_n) begin
-        if (!i_rst_n) begin
-            rx_meta <= 1'b1;
-            rx_sync <= 1'b1;
-        end
-        else begin
-            rx_meta <= i_uart_rx;
-            rx_sync <= rx_meta;
-        end
-    end
-
-    always @(posedge i_clk or negedge i_rst_n) begin
-        if (!i_rst_n) begin
-            state      <= S_IDLE;
-            clk_cnt    <= 16'd0;
-            bit_idx    <= 3'd0;
-            data_reg   <= 8'd0;
-            o_byte_data<= 8'd0;
-            o_byte_valid <= 1'b0;
-        end
-        else begin
-            o_byte_valid <= 1'b0;
-
-            case (state)
-                S_IDLE: begin
-                    clk_cnt <= 16'd0;
-                    bit_idx <= 3'd0;
-                    if (!rx_sync) begin
-                        state   <= S_START;
-                        clk_cnt <= (CLKS_PER_BIT >> 1);
-                    end
-                end
-
-                S_START: begin
-                    if (clk_cnt == 16'd0) begin
-                        if (!rx_sync) begin
-                            state   <= S_DATA;
-                            clk_cnt <= CLKS_PER_BIT - 1;
-                            bit_idx <= 3'd0;
-                        end
-                        else begin
-                            state <= S_IDLE;
-                        end
-                    end
-                    else begin
-                        clk_cnt <= clk_cnt - 16'd1;
-                    end
-                end
-
-                S_DATA: begin
-                    if (clk_cnt == 16'd0) begin
-                        data_reg[bit_idx] <= rx_sync;
-                        clk_cnt <= CLKS_PER_BIT - 1;
-
-                        if (bit_idx == 3'd7) begin
-                            state <= S_STOP;
-                        end
-                        else begin
-                            bit_idx <= bit_idx + 3'd1;
-                        end
-                    end
-                    else begin
-                        clk_cnt <= clk_cnt - 16'd1;
-                    end
-                end
-
-                S_STOP: begin
-                    if (clk_cnt == 16'd0) begin
-                        o_byte_data  <= data_reg;
-                        o_byte_valid <= 1'b1;
-                        state        <= S_IDLE;
-                    end
-                    else begin
-                        clk_cnt <= clk_cnt - 16'd1;
-                    end
-                end
-
-                default: state <= S_IDLE;
-            endcase
-        end
-    end
-
-endmodule
-
-
-//==============================================================================
-// uart_tx_byte_v1
-// byte pulse -> UART TX
-//==============================================================================
-module uart_tx_byte_v1
-#(
-    parameter integer CLKS_PER_BIT = 678
-)
-(
-    input            i_clk,
-    input            i_rst_n,
-
-    input      [7:0] i_byte_data,
-    input            i_byte_valid,
-    output           o_byte_ready,
-
-    output reg       o_uart_tx,
-    output reg       o_busy
-);
-
-    localparam [2:0]
-        S_IDLE  = 3'd0,
-        S_START = 3'd1,
-        S_DATA  = 3'd2,
-        S_STOP  = 3'd3;
-
-    reg [2:0]  state;
-    reg [15:0] clk_cnt;
-    reg [2:0]  bit_idx;
-    reg [7:0]  data_reg;
-
-    assign o_byte_ready = (state == S_IDLE);
-
-    always @(posedge i_clk or negedge i_rst_n) begin
-        if (!i_rst_n) begin
-            state   <= S_IDLE;
-            clk_cnt <= 16'd0;
-            bit_idx <= 3'd0;
-            data_reg<= 8'd0;
-            o_uart_tx <= 1'b1;
-            o_busy    <= 1'b0;
-        end
-        else begin
-            case (state)
-                S_IDLE: begin
-                    o_uart_tx <= 1'b1;
-                    o_busy    <= 1'b0;
-                    clk_cnt   <= 16'd0;
-                    bit_idx   <= 3'd0;
-
-                    if (i_byte_valid) begin
-                        data_reg <= i_byte_data;
-                        state    <= S_START;
-                        o_busy   <= 1'b1;
-                        o_uart_tx<= 1'b0; // start bit
-                        clk_cnt  <= CLKS_PER_BIT - 1;
-                    end
-                end
-
-                S_START: begin
-                    o_busy <= 1'b1;
-                    if (clk_cnt == 16'd0) begin
-                        state   <= S_DATA;
-                        bit_idx <= 3'd0;
-                        o_uart_tx<= data_reg[0];
-                        clk_cnt <= CLKS_PER_BIT - 1;
-                    end
-                    else begin
-                        clk_cnt <= clk_cnt - 16'd1;
-                    end
-                end
-
-                S_DATA: begin
-                    o_busy <= 1'b1;
-                    if (clk_cnt == 16'd0) begin
-                        if (bit_idx == 3'd7) begin
-                            state    <= S_STOP;
-                            o_uart_tx <= 1'b1; // stop bit
-                            clk_cnt  <= CLKS_PER_BIT - 1;
-                        end
-                        else begin
-                            bit_idx   <= bit_idx + 3'd1;
-                            o_uart_tx <= data_reg[bit_idx + 3'd1];
-                            clk_cnt   <= CLKS_PER_BIT - 1;
-                        end
-                    end
-                    else begin
-                        clk_cnt <= clk_cnt - 16'd1;
-                    end
-                end
-
-                S_STOP: begin
-                    o_busy <= 1'b1;
-                    if (clk_cnt == 16'd0) begin
-                        state    <= S_IDLE;
-                        o_uart_tx<= 1'b1;
-                        o_busy   <= 1'b0;
-                    end
-                    else begin
-                        clk_cnt <= clk_cnt - 16'd1;
-                    end
-                end
-
-                default: begin
-                    state    <= S_IDLE;
-                    o_uart_tx<= 1'b1;
-                    o_busy   <= 1'b0;
-                end
-            endcase
-        end
-    end
 
 endmodule

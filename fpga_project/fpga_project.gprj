@@ -31,10 +31,14 @@
         <File path="src/rx_rgb888_unpacker_v1_0.v" type="file.verilog" enable="1"/>
         <File path="src/serdes/roralink_8b10b/roralink_8b10b.v" type="file.verilog" enable="1"/>
         <File path="src/serdes/serdes.v" type="file.verilog" enable="1"/>
+        <File path="src/stream_demux_v1.v" type="file.verilog" enable="1"/>
+        <File path="src/stream_mux_qos_v1.v" type="file.verilog" enable="1"/>
         <File path="src/testpattern.v" type="file.verilog" enable="1"/>
         <File path="src/top.v" type="file.verilog" enable="1"/>
         <File path="src/tx_rgb888_packer_v1_0.v" type="file.verilog" enable="1"/>
         <File path="src/uart_to_bus/uart_to_bus.v" type="file.verilog" enable="1"/>
+        <File path="src/uart_word_packer_v1.v" type="file.verilog" enable="1"/>
+        <File path="src/uart_word_unpacker_v1.v" type="file.verilog" enable="1"/>
         <File path="src/video_symbol_packer_v1.v" type="file.verilog" enable="1"/>
         <File path="src/video_symbol_unpacker_v1.v" type="file.verilog" enable="1"/>
         <File path="src/top.cst" type="file.cst" enable="1"/>
@@ -43,6 +47,7 @@
         <File path="src/fpga_project1.rao" type="file.gao" enable="0"/>
         <File path="src/fpga_project2.rao" type="file.gao" enable="0"/>
         <File path="src/pixel.rao" type="file.gao" enable="0"/>
+        <File path="src/test.rao" type="file.gao" enable="1"/>
         <File path="src/top.gsc" type="file.gsc" enable="1"/>
     </FileList>
 </Project>
