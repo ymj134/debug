@@ -2,19 +2,20 @@
 
 /*********************************************************************************
 * Module       : top
-* Style tag    : top_full_timing_stream_uart_v2
+* Style tag    : top_full_timing_stream_uart_v3
 * Description  :
 *   720p60 full-timing video stream + high-priority UART user-data stream
+*   + UART-controlled OSD black box overlay
 *
-* Key change from v1:
-*   1) HDMI 始终使用本地稳定的 tp_vs/tp_hs/tp_de
-*   2) 返回流 rx_sym_vs/rx_sym_hs/rx_sym_de 不再直接驱动显示器
-*   3) rx_sym_vs 只用于锁流；锁流后，仅把返回的 rx_sym_rgb 作为像素内容显示
+* OSD commands:
+*   '1' : OSD ON
+*   '0' : OSD OFF
+*   'T' : OSD TOGGLE
 *
 * Notes:
-*   1) pixel_clk = 74.25MHz
-*   2) RoraLink IP 必须是 streaming mode
-*   3) 这版优先解决“偶发黑屏”问题
+*   1) 保持你当前 streaming mode + 74.25MHz 配置
+*   2) HDMI 始终使用本地稳定的 tp_vs/tp_hs/tp_de
+*   3) 返回视频流只作为 RGB 内容来源
 *********************************************************************************/
 
 module top
@@ -28,7 +29,6 @@ module top
     input           rx_i,               // UART RX
     output          tx_o,               // UART TX
 
-    // output [3:0]    test_o,
     output [3:0]    led_o,
 
     inout           IO_adv7513_scl,
@@ -89,7 +89,7 @@ module top
     //==========================================================================
     // 2) 时钟 / 复位 / GT 状态
     //==========================================================================
-    wire                  sys_clk/* synthesis syn_keep=1 */;
+    wire                  sys_clk /* synthesis syn_keep=1 */;
     wire                  sys_rst;
     wire                  cfg_clk;
     wire                  cfg_pll_lock;
@@ -114,7 +114,7 @@ module top
     //==========================================================================
     // 3) pixel / 本地 720p 源
     //==========================================================================
-    wire        pixel_clk;       // 74.25MHz
+    wire        pixel_clk;
     wire        pixel_clk_lock;
     wire        pixel_rst;
     wire        pixel_rst_n = ~pixel_rst;
@@ -197,7 +197,7 @@ module top
     wire        demux_dbg_is_video;
     wire        demux_dbg_is_ctrl;
 
-    // RX_VIDEO async FIFO（沿用你现有 36-bit FIFO）
+    // RX_VIDEO async FIFO（沿用现有 36-bit FIFO）
     wire [35:0] rx_video_fifo_din;
     wire [35:0] rx_video_fifo_dout;
     wire        rx_video_fifo_empty;
@@ -233,7 +233,18 @@ module top
     wire        uart_tx_busy;
 
     //==========================================================================
-    // 10) pixel 域流控 / 锁流
+    // 10) UART 命令解码 / OSD 控制
+    //==========================================================================
+    wire        osd_enable_sys;
+    wire [7:0]  osd_last_cmd;
+    wire        osd_cmd_seen_pulse;
+    wire        osd_unknown_cmd_sticky;
+
+    reg         osd_enable_meta = 1'b0;
+    reg         osd_enable_pclk = 1'b0;
+
+    //==========================================================================
+    // 11) pixel 域流控 / 锁流
     //==========================================================================
     reg channel_up_meta_pclk  = 1'b0;
     reg channel_up_pclk       = 1'b0;
@@ -251,49 +262,54 @@ module top
     assign channel_down_pulse_pclk = channel_up_pclk_d & (~channel_up_pclk);
     assign rx_vs_rise_pclk         = (~rx_sym_vs_d) & rx_sym_vs & rx_sym_valid;
 
-    // 只有预填充完成后才开始消费 RX_VIDEO FIFO
     wire rx_video_ready_pclk;
     assign rx_video_ready_pclk = rx_read_enable_pclk;
 
     //==========================================================================
-    // 11) HDMI 输出选择
+    // 12) HDMI 输出 / OSD
     //==========================================================================
     wire        hdmi_vs;
     wire        hdmi_hs;
     wire        hdmi_de;
-    wire [23:0] hdmi_rgb;
 
-    // 关键改动：
-    // HDMI 始终使用本地稳定的 720p timing
+    wire [23:0] base_rgb;
+    wire [23:0] osd_rgb;
+    wire        osd_in_box;
+
+    // HDMI 始终使用本地稳定 timing
     assign hdmi_vs = tp_vs;
     assign hdmi_hs = tp_hs;
     assign hdmi_de = tp_de;
 
     // 锁流后，仅在本地 active 区、且返回流当前为有效视频符号时，显示返回 RGB
-    // 其余情况黑屏，避免把返回 timing 的毛刺直接送给显示器
-    assign hdmi_rgb =
+    assign base_rgb =
         (tp_de && rx_stream_enable_pclk && rx_sym_valid && rx_sym_de) ? rx_sym_rgb
                                                                       : 24'h000000;
 
     //==========================================================================
-    // 12) 固定连接 / LED / TEST
+    // 13) 内部调试信号 / LED
     //==========================================================================
+    wire [3:0] test_sig /* synthesis syn_keep=1 */;
+
+    assign test_sig[0] = tx_video_overflow_sticky;
+    assign test_sig[1] = rx_stream_underflow_sticky;
+    assign test_sig[2] = tx_ctrl_overflow_sticky_from_packer;
+    assign test_sig[3] = osd_unknown_cmd_sticky |
+                         uart_rx_crc_err_sticky |
+                         uart_rx_seq_err_sticky |
+                         uart_rx_type_err_sticky |
+                         uart_rx_channel_err_sticky;
+
     assign sfp1_tx_disable_o = 1'b0;
     assign sfp2_tx_disable_o = 1'b0;
 
     assign led_o[0] = cfg_pll_lock;
     assign led_o[1] = gt_pll_ok;
     assign led_o[2] = channel_up;
-    assign led_o[3] = rx_stream_enable_pclk;
-
-    wire test_o0 = tx_video_overflow_sticky;
-    wire test_o1 = rx_stream_underflow_sticky;
-    wire test_o2 = tx_ctrl_overflow_sticky_from_packer;
-    wire test_o3 = uart_rx_crc_err_sticky | uart_rx_seq_err_sticky |
-                       uart_rx_type_err_sticky | uart_rx_channel_err_sticky;
+    assign led_o[3] = osd_enable_pclk;
 
     //==========================================================================
-    // 13) 时钟 / 复位
+    // 14) 时钟 / 复位
     //==========================================================================
     assign sys_clk         = gt_pcs_tx_clk[0];
     assign gt_reset        = 1'b0;
@@ -328,7 +344,7 @@ module top
     (
         .clkin      ( osc_clk_i       ),
         .init_clk   ( osc_clk_i       ),
-        .clkout0    ( pixel_clk       ),   // 74.25MHz
+        .clkout0    ( pixel_clk       ),
         .lock       ( pixel_clk_lock  ),
         .reset      ( !resetn_i       )
     );
@@ -341,7 +357,7 @@ module top
     );
 
     //==========================================================================
-    // 14) ADV7513 / 本地 720p 测试图
+    // 15) ADV7513 / 本地 720p 测试图
     //==========================================================================
     wire        TX_EN_7513;
     wire [2:0]  WADDR_7513;
@@ -410,7 +426,7 @@ module top
     );
 
     //==========================================================================
-    // 15) SerDes_Top（streaming mode）
+    // 16) SerDes_Top（streaming mode）
     //==========================================================================
     SerDes_Top u_SerDes_Top
     (
@@ -442,7 +458,7 @@ module top
     );
 
     //==========================================================================
-    // 16) 视频发送端：打包完整 timing -> TX_VIDEO FIFO
+    // 17) 视频发送端：打包完整 timing -> TX_VIDEO FIFO
     //==========================================================================
     video_symbol_packer_v1 u_video_symbol_packer_v1
     (
@@ -463,7 +479,7 @@ module top
     );
 
     //==========================================================================
-    // 17) UART 发送到链路：UART RX -> 控制字 -> TX_CTRL FIFO
+    // 18) UART 发送到链路：UART RX -> 控制字 -> TX_CTRL FIFO
     //==========================================================================
     uart_rx_byte_v1
     #(
@@ -501,7 +517,7 @@ module top
     );
 
     //==========================================================================
-    // 18) TX 复用：ctrl 高优先级 + 视频高水位保护
+    // 19) TX 复用：ctrl 高优先级 + 视频高水位保护
     //==========================================================================
     stream_mux_qos_v1
     #(
@@ -536,7 +552,7 @@ module top
     assign user_tx_valid = mux_tx_valid;
 
     //==========================================================================
-    // 19) RX 解复用：视频 -> RX_VIDEO FIFO，控制 -> RX_CTRL FIFO
+    // 20) RX 解复用：视频 -> RX_VIDEO FIFO，控制 -> RX_CTRL FIFO
     //==========================================================================
     stream_demux_v1 u_stream_demux_v1
     (
@@ -562,7 +578,7 @@ module top
     );
 
     //==========================================================================
-    // 20) RX 视频恢复：RX_VIDEO FIFO -> 本地 timing 下显示 RGB
+    // 21) RX 视频恢复：RX_VIDEO FIFO -> 本地 timing 下显示 RGB
     //==========================================================================
     video_symbol_unpacker_v1 u_video_symbol_unpacker_v1
     (
@@ -585,7 +601,7 @@ module top
     );
 
     //==========================================================================
-    // 21) RX 控制恢复：RX_CTRL FIFO -> UART TX
+    // 22) RX 控制恢复：RX_CTRL FIFO -> UART TX
     //==========================================================================
     uart_word_unpacker_v1
     #(
@@ -613,6 +629,7 @@ module top
         .o_seq_err_sticky    (uart_rx_seq_err_sticky)
     );
 
+    // UART 回显输出
     uart_tx_byte_v1
     #(
         .CLKS_PER_BIT(UART_CLKS_PER_BIT)
@@ -631,7 +648,68 @@ module top
     );
 
     //==========================================================================
-    // 22) pixel 域：预填充 + VS 锁流
+    // 23) UART 命令解码：监听返回到本地的 UART 字节
+    //==========================================================================
+    uart_cmd_decoder_v1 u_uart_cmd_decoder_v1
+    (
+        .i_clk               (sys_clk),
+        .i_rst_n             (~sys_rst),
+
+        .i_byte_data         (uart_tx_byte_from_link),
+        .i_byte_valid        (uart_tx_byte_valid_from_link),
+
+        .o_osd_enable        (osd_enable_sys),
+
+        .o_last_cmd          (osd_last_cmd),
+        .o_cmd_seen_pulse    (osd_cmd_seen_pulse),
+        .o_unknown_cmd_sticky(osd_unknown_cmd_sticky)
+    );
+
+    //==========================================================================
+    // 24) OSD 使能跨时钟同步到 pixel_clk
+    //==========================================================================
+    always @(posedge pixel_clk or negedge pixel_rst_n) begin
+        if (!pixel_rst_n) begin
+            osd_enable_meta <= 1'b0;
+            osd_enable_pclk <= 1'b0;
+        end
+        else begin
+            osd_enable_meta <= osd_enable_sys;
+            osd_enable_pclk <= osd_enable_meta;
+        end
+    end
+
+    //==========================================================================
+    // 25) OSD 叠加：在屏幕中间覆盖黑块
+    //==========================================================================
+    osd_box_overlay_v1
+    #(
+        .ACTIVE_H_START (16'd260),
+        .ACTIVE_V_START (16'd25),
+        .ACTIVE_W       (16'd1280),
+        .ACTIVE_H       (16'd720),
+        .BOX_W          (16'd320),
+        .BOX_H          (16'd120)
+    )
+    u_osd_box_overlay_v1
+    (
+        .i_clk          (pixel_clk),
+        .i_rst_n        (pixel_rst_n),
+
+        .i_osd_enable   (osd_enable_pclk),
+
+        .i_h_cnt        (tp_h_cnt),
+        .i_v_cnt        (tp_v_cnt),
+        .i_de           (tp_de),
+
+        .i_base_rgb     (base_rgb),
+
+        .o_rgb          (osd_rgb),
+        .o_in_box       (osd_in_box)
+    );
+
+    //==========================================================================
+    // 26) pixel 域：预填充 + VS 锁流
     //==========================================================================
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
@@ -665,7 +743,6 @@ module top
                         rx_read_enable_pclk <= 1'b1;
                 end
 
-                // 仍然用返回流的 VS 上升沿作为“视频返回已稳定”的判据
                 if (rx_read_enable_pclk && rx_vs_rise_pclk)
                     rx_stream_enable_pclk <= 1'b1;
             end
@@ -673,12 +750,10 @@ module top
     end
 
     //==========================================================================
-    // 23) FIFO 实例
+    // 27) FIFO 实例
     //==========================================================================
 
-    // -------------------------------
-    // TX_VIDEO async FIFO（沿用你现有 36-bit FIFO）
-    // -------------------------------
+    // TX_VIDEO async FIFO
     fifo_top_tx36x4096 u_fifo_top_tx36x4096
     (
         .Data           (tx_video_fifo_din),
@@ -695,9 +770,7 @@ module top
         .Full           (tx_video_fifo_full)
     );
 
-    // -------------------------------
-    // RX_VIDEO async FIFO（沿用你现有 36-bit FIFO）
-    // -------------------------------
+    // RX_VIDEO async FIFO
     fifo_top_rx36x4096 u_fifo_top_rx36x4096
     (
         .Data           (rx_video_fifo_din),
@@ -713,9 +786,7 @@ module top
         .Full           (rx_video_fifo_full)
     );
 
-    // -------------------------------
     // TX_CTRL sync FIFO
-    // -------------------------------
     sync_fifo_fwft_v1
     #(
         .DATA_W (32),
@@ -737,9 +808,7 @@ module top
         .o_count    ()
     );
 
-    // -------------------------------
     // RX_CTRL sync FIFO
-    // -------------------------------
     sync_fifo_fwft_v1
     #(
         .DATA_W (32),
@@ -762,12 +831,12 @@ module top
     );
 
     //==========================================================================
-    // 24) HDMI 输出
+    // 28) HDMI 输出
     //==========================================================================
     assign O_adv7513_clk  = pixel_clk;
     assign O_adv7513_vs   = hdmi_vs;
     assign O_adv7513_hs   = hdmi_hs;
     assign O_adv7513_de   = hdmi_de;
-    assign O_adv7513_data = hdmi_rgb;
+    assign O_adv7513_data = osd_rgb;
 
 endmodule
