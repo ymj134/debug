@@ -28,7 +28,7 @@ module top
     input           rx_i,               // UART RX
     output          tx_o,               // UART TX
 
-    output [3:0]    test_o,
+    // output [3:0]    test_o,
     output [3:0]    led_o,
 
     inout           IO_adv7513_scl,
