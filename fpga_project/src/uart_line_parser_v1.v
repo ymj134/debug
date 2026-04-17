@@ -11,10 +11,9 @@
 *   3) 行内容不包含结尾的 '\r' / '\n'
 *   4) 输出一拍 o_line_valid，表示当前 o_line_data/o_line_len 有效
 *
-* Notes:
-*   1) 本模块不做命令解析，只做“按行收集”
-*   2) 若一行超长，会截断并拉高 overflow sticky
-*   3) 空行（长度为 0）默认忽略，不输出 o_line_valid
+* Fixed version:
+*   - 不再对 packed vector 做变量位选写入
+*   - 改用 byte memory 收字符，再在换行时统一拼包
 *********************************************************************************/
 
 module uart_line_parser_v1
@@ -39,21 +38,23 @@ module uart_line_parser_v1
     localparam integer LINE_W = MAX_LINE_CHARS * 8;
 
     reg [7:0] r_len;
-    reg [LINE_W-1:0] r_buf;
+    reg [7:0] r_mem [0:MAX_LINE_CHARS-1];
 
-    integer k;
+    reg [LINE_W-1:0] v_line;
+
+    integer i;
 
     always @(posedge i_clk or negedge i_rst_n) begin
         if (!i_rst_n) begin
-            r_len                  <= 8'd0;
-            r_buf                  <= {LINE_W{1'b0}};
+            r_len                   <= 8'd0;
+            o_line_data             <= {LINE_W{1'b0}};
+            o_line_len              <= 8'd0;
+            o_line_valid            <= 1'b0;
+            o_overflow_sticky       <= 1'b0;
+            o_empty_line_seen_pulse <= 1'b0;
 
-            o_line_data            <= {LINE_W{1'b0}};
-            o_line_len             <= 8'd0;
-            o_line_valid           <= 1'b0;
-
-            o_overflow_sticky      <= 1'b0;
-            o_empty_line_seen_pulse<= 1'b0;
+            for (i = 0; i < MAX_LINE_CHARS; i = i + 1)
+                r_mem[i] <= 8'd0;
         end
         else begin
             o_line_valid            <= 1'b0;
@@ -68,7 +69,13 @@ module uart_line_parser_v1
                     8'h0A: begin
                         // '\n' line end
                         if (r_len != 8'd0) begin
-                            o_line_data  <= r_buf;
+                            v_line = {LINE_W{1'b0}};
+                            for (i = 0; i < MAX_LINE_CHARS; i = i + 1) begin
+                                if (i < r_len)
+                                    v_line[i*8 +: 8] = r_mem[i];
+                            end
+
+                            o_line_data  <= v_line;
                             o_line_len   <= r_len;
                             o_line_valid <= 1'b1;
                         end
@@ -76,20 +83,15 @@ module uart_line_parser_v1
                             o_empty_line_seen_pulse <= 1'b1;
                         end
 
-                        // clear current buffer
                         r_len <= 8'd0;
-                        r_buf <= {LINE_W{1'b0}};
                     end
 
                     default: begin
                         if (r_len < MAX_LINE_CHARS[7:0]) begin
-                            // store byte into low-to-high packed buffer:
-                            // byte0 -> [7:0], byte1 -> [15:8], ...
-                            r_buf[r_len*8 +: 8] <= i_byte_data;
-                            r_len <= r_len + 8'd1;
+                            r_mem[r_len] <= i_byte_data;
+                            r_len        <= r_len + 8'd1;
                         end
                         else begin
-                            // line too long: keep truncating, wait for '\n'
                             o_overflow_sticky <= 1'b1;
                         end
                     end

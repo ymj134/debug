@@ -5,22 +5,11 @@
 * Description  :
 *   将 demo_ctrl_fsm_v1 的结构化响应格式化成 ASCII 文本，并逐字节输出
 *
-* Handshake:
-*   - 当 i_resp_valid=1 且本模块空闲时，本模块拉高 o_resp_ready 一拍并锁存响应
-*   - 随后开始通过 o_byte_data/o_byte_valid 向 uart_tx_byte_v1 发送字节
-*
-* Output format examples:
-*   OK OSD ON\r\n
-*   OK MENU 2 GRAY\r\n
-*   OK MODE 4 RED\r\n
-*   OK RESET\r\n
-*   STAT LINK UP OSD ON MENU 2 MODE GRAY\r\n
-*   WARN LINK DOWN\r\n
-*   INFO LINK UP RESET\r\n
-*   HELP OSD ON|OFF|TOGGLE, MENU UP|DOWN, MODE SET <NAME>, STATUS?, RESET\r\n
-*   ERR UNKNOWN CMD\r\n
-*   ERR BAD ARG\r\n
-*   ERR LINK DOWN\r\n
+* Fixed version:
+*   修复了“每隔一个字符丢一个”的握手问题：
+*   - o_byte_valid 在发送期间保持为 1
+*   - o_byte_data 始终指向当前 r_tx_idx 对应字符
+*   - 只有在 i_byte_ready=1 时，才前进到下一个字符
 *********************************************************************************/
 
 module uart_resp_formatter_v1
@@ -42,8 +31,8 @@ module uart_resp_formatter_v1
     input       [2:0]               i_resp_active_mode,
 
     // 输出到 uart_tx_byte_v1
-    output reg  [7:0]               o_byte_data,
-    output reg                      o_byte_valid,
+    output      [7:0]               o_byte_data,
+    output                          o_byte_valid,
     input                           i_byte_ready,
 
     // debug
@@ -87,7 +76,8 @@ module uart_resp_formatter_v1
     reg [7:0]       build_len;
     reg             build_overflow;
 
-    integer j;
+    assign o_byte_valid = r_tx_active;
+    assign o_byte_data  = r_buf[r_tx_idx*8 +: 8];
 
     //--------------------------------------------------------------------------
     // Helper tasks for build buffer
@@ -169,66 +159,29 @@ module uart_resp_formatter_v1
         begin
             case (mode)
                 3'd0: begin
-                    t_put_char("C");
-                    t_put_char("O");
-                    t_put_char("L");
-                    t_put_char("O");
-                    t_put_char("R");
-                    t_put_char("B");
-                    t_put_char("A");
-                    t_put_char("R");
+                    t_put_char("C"); t_put_char("O"); t_put_char("L"); t_put_char("O");
+                    t_put_char("R"); t_put_char("B"); t_put_char("A"); t_put_char("R");
                 end
-
                 3'd1: begin
-                    t_put_char("N");
-                    t_put_char("E");
-                    t_put_char("T");
-                    t_put_char("G");
-                    t_put_char("R");
-                    t_put_char("I");
-                    t_put_char("D");
+                    t_put_char("N"); t_put_char("E"); t_put_char("T"); t_put_char("G");
+                    t_put_char("R"); t_put_char("I"); t_put_char("D");
                 end
-
                 3'd2: begin
-                    t_put_char("G");
-                    t_put_char("R");
-                    t_put_char("A");
-                    t_put_char("Y");
+                    t_put_char("G"); t_put_char("R"); t_put_char("A"); t_put_char("Y");
                 end
-
                 3'd3: begin
-                    t_put_char("B");
-                    t_put_char("W");
-                    t_put_char("S");
-                    t_put_char("Q");
-                    t_put_char("U");
-                    t_put_char("A");
-                    t_put_char("R");
-                    t_put_char("E");
+                    t_put_char("B"); t_put_char("W"); t_put_char("S"); t_put_char("Q");
+                    t_put_char("U"); t_put_char("A"); t_put_char("R"); t_put_char("E");
                 end
-
                 3'd4: begin
-                    t_put_char("R");
-                    t_put_char("E");
-                    t_put_char("D");
+                    t_put_char("R"); t_put_char("E"); t_put_char("D");
                 end
-
                 3'd5: begin
-                    t_put_char("G");
-                    t_put_char("R");
-                    t_put_char("E");
-                    t_put_char("E");
-                    t_put_char("N");
+                    t_put_char("G"); t_put_char("R"); t_put_char("E"); t_put_char("E"); t_put_char("N");
                 end
-
                 default: begin
-                    t_put_char("U");
-                    t_put_char("N");
-                    t_put_char("K");
-                    t_put_char("N");
-                    t_put_char("O");
-                    t_put_char("W");
-                    t_put_char("N");
+                    t_put_char("U"); t_put_char("N"); t_put_char("K"); t_put_char("N");
+                    t_put_char("O"); t_put_char("W"); t_put_char("N");
                 end
             endcase
         end
@@ -239,32 +192,25 @@ module uart_resp_formatter_v1
     //--------------------------------------------------------------------------
     always @(posedge i_clk or negedge i_rst_n) begin
         if (!i_rst_n) begin
-            r_buf              <= {BUF_W{1'b0}};
-            r_len              <= 8'd0;
-            r_tx_idx           <= 8'd0;
-            r_tx_active        <= 1'b0;
+            r_buf             <= {BUF_W{1'b0}};
+            r_len             <= 8'd0;
+            r_tx_idx          <= 8'd0;
+            r_tx_active       <= 1'b0;
 
-            o_resp_ready       <= 1'b0;
-            o_byte_data        <= 8'd0;
-            o_byte_valid       <= 1'b0;
-
-            o_busy             <= 1'b0;
-            o_dbg_len          <= 8'd0;
-            o_overflow_sticky  <= 1'b0;
+            o_resp_ready      <= 1'b0;
+            o_busy            <= 1'b0;
+            o_dbg_len         <= 8'd0;
+            o_overflow_sticky <= 1'b0;
         end
         else begin
             o_resp_ready <= 1'b0;
-            o_byte_valid <= 1'b0;
             o_busy       <= r_tx_active;
 
             // --------------------------------------------------------------
-            // 1) 若当前正在发送响应，则按字节送给 uart_tx_byte_v1
+            // 1) 正在发送时：只有 ready 到来，才前进到下一个字符
             // --------------------------------------------------------------
             if (r_tx_active) begin
                 if (i_byte_ready) begin
-                    o_byte_data  <= r_buf[r_tx_idx*8 +: 8];
-                    o_byte_valid <= 1'b1;
-
                     if (r_tx_idx == (r_len - 8'd1)) begin
                         r_tx_idx    <= 8'd0;
                         r_tx_active <= 1'b0;
@@ -276,299 +222,124 @@ module uart_resp_formatter_v1
             end
 
             // --------------------------------------------------------------
-            // 2) 空闲时，若有新结构化响应，则锁存并开始格式化
+            // 2) 空闲时：接收一条新的结构化响应并格式化
             // --------------------------------------------------------------
             else if (i_resp_valid) begin
                 t_build_clear;
 
                 case (i_resp_kind)
                     RESP_OK_OSD: begin
-                        // OK OSD ON/OFF
-                        t_put_char("O");
-                        t_put_char("K");
-                        t_put_space;
-                        t_put_char("O");
-                        t_put_char("S");
-                        t_put_char("D");
-                        t_put_space;
+                        t_put_char("O"); t_put_char("K"); t_put_space;
+                        t_put_char("O"); t_put_char("S"); t_put_char("D"); t_put_space;
                         t_put_onoff(i_resp_osd_on);
                         t_put_crlf;
                     end
 
                     RESP_OK_MENU: begin
-                        // OK MENU <idx> <name>
-                        t_put_char("O");
-                        t_put_char("K");
-                        t_put_space;
-                        t_put_char("M");
-                        t_put_char("E");
-                        t_put_char("N");
-                        t_put_char("U");
-                        t_put_space;
-                        t_put_digit(i_resp_menu_index);
-                        t_put_space;
+                        t_put_char("O"); t_put_char("K"); t_put_space;
+                        t_put_char("M"); t_put_char("E"); t_put_char("N"); t_put_char("U"); t_put_space;
+                        t_put_digit(i_resp_menu_index); t_put_space;
                         t_put_mode_name(i_resp_menu_index);
                         t_put_crlf;
                     end
 
                     RESP_OK_MODE: begin
-                        // OK MODE <idx> <name>
-                        t_put_char("O");
-                        t_put_char("K");
-                        t_put_space;
-                        t_put_char("M");
-                        t_put_char("O");
-                        t_put_char("D");
-                        t_put_char("E");
-                        t_put_space;
-                        t_put_digit(i_resp_active_mode);
-                        t_put_space;
+                        t_put_char("O"); t_put_char("K"); t_put_space;
+                        t_put_char("M"); t_put_char("O"); t_put_char("D"); t_put_char("E"); t_put_space;
+                        t_put_digit(i_resp_active_mode); t_put_space;
                         t_put_mode_name(i_resp_active_mode);
                         t_put_crlf;
                     end
 
                     RESP_OK_RESET: begin
-                        // OK RESET
-                        t_put_char("O");
-                        t_put_char("K");
-                        t_put_space;
-                        t_put_char("R");
-                        t_put_char("E");
-                        t_put_char("S");
-                        t_put_char("E");
-                        t_put_char("T");
+                        t_put_char("O"); t_put_char("K"); t_put_space;
+                        t_put_char("R"); t_put_char("E"); t_put_char("S"); t_put_char("E"); t_put_char("T");
                         t_put_crlf;
                     end
 
                     RESP_STAT: begin
-                        // STAT LINK UP/DOWN OSD ON/OFF MENU <idx> MODE <name>
-                        t_put_char("S");
-                        t_put_char("T");
-                        t_put_char("A");
-                        t_put_char("T");
-                        t_put_space;
-
-                        t_put_char("L");
-                        t_put_char("I");
-                        t_put_char("N");
-                        t_put_char("K");
-                        t_put_space;
-                        t_put_link(i_resp_link_up);
-                        t_put_space;
-
-                        t_put_char("O");
-                        t_put_char("S");
-                        t_put_char("D");
-                        t_put_space;
-                        t_put_onoff(i_resp_osd_on);
-                        t_put_space;
-
-                        t_put_char("M");
-                        t_put_char("E");
-                        t_put_char("N");
-                        t_put_char("U");
-                        t_put_space;
-                        t_put_digit(i_resp_menu_index);
-                        t_put_space;
-
-                        t_put_char("M");
-                        t_put_char("O");
-                        t_put_char("D");
-                        t_put_char("E");
-                        t_put_space;
+                        t_put_char("S"); t_put_char("T"); t_put_char("A"); t_put_char("T"); t_put_space;
+                        t_put_char("L"); t_put_char("I"); t_put_char("N"); t_put_char("K"); t_put_space;
+                        t_put_link(i_resp_link_up); t_put_space;
+                        t_put_char("O"); t_put_char("S"); t_put_char("D"); t_put_space;
+                        t_put_onoff(i_resp_osd_on); t_put_space;
+                        t_put_char("M"); t_put_char("E"); t_put_char("N"); t_put_char("U"); t_put_space;
+                        t_put_digit(i_resp_menu_index); t_put_space;
+                        t_put_char("M"); t_put_char("O"); t_put_char("D"); t_put_char("E"); t_put_space;
                         t_put_mode_name(i_resp_active_mode);
                         t_put_crlf;
                     end
 
                     RESP_WARN_LINK_DOWN: begin
-                        // WARN LINK DOWN
-                        t_put_char("W");
-                        t_put_char("A");
-                        t_put_char("R");
-                        t_put_char("N");
-                        t_put_space;
-                        t_put_char("L");
-                        t_put_char("I");
-                        t_put_char("N");
-                        t_put_char("K");
-                        t_put_space;
-                        t_put_char("D");
-                        t_put_char("O");
-                        t_put_char("W");
-                        t_put_char("N");
+                        t_put_char("W"); t_put_char("A"); t_put_char("R"); t_put_char("N"); t_put_space;
+                        t_put_char("L"); t_put_char("I"); t_put_char("N"); t_put_char("K"); t_put_space;
+                        t_put_char("D"); t_put_char("O"); t_put_char("W"); t_put_char("N");
                         t_put_crlf;
                     end
 
                     RESP_INFO_LINK_UP_RST: begin
-                        // INFO LINK UP RESET
-                        t_put_char("I");
-                        t_put_char("N");
-                        t_put_char("F");
-                        t_put_char("O");
-                        t_put_space;
-                        t_put_char("L");
-                        t_put_char("I");
-                        t_put_char("N");
-                        t_put_char("K");
-                        t_put_space;
-                        t_put_char("U");
-                        t_put_char("P");
-                        t_put_space;
-                        t_put_char("R");
-                        t_put_char("E");
-                        t_put_char("S");
-                        t_put_char("E");
-                        t_put_char("T");
+                        t_put_char("I"); t_put_char("N"); t_put_char("F"); t_put_char("O"); t_put_space;
+                        t_put_char("L"); t_put_char("I"); t_put_char("N"); t_put_char("K"); t_put_space;
+                        t_put_char("U"); t_put_char("P"); t_put_space;
+                        t_put_char("R"); t_put_char("E"); t_put_char("S"); t_put_char("E"); t_put_char("T");
                         t_put_crlf;
                     end
 
                     RESP_HELP: begin
-                        // HELP OSD ON|OFF|TOGGLE, MENU UP|DOWN, MODE SET <NAME>, STATUS?, RESET
-                        t_put_char("H");
-                        t_put_char("E");
-                        t_put_char("L");
-                        t_put_char("P");
-                        t_put_space;
+                        t_put_char("H"); t_put_char("E"); t_put_char("L"); t_put_char("P"); t_put_space;
+                        t_put_char("O"); t_put_char("S"); t_put_char("D"); t_put_space;
+                        t_put_char("O"); t_put_char("N"); t_put_char("|");
+                        t_put_char("O"); t_put_char("F"); t_put_char("F"); t_put_char("|");
+                        t_put_char("T"); t_put_char("O"); t_put_char("G"); t_put_char("G"); t_put_char("L"); t_put_char("E");
+                        t_put_char(","); t_put_space;
 
-                        t_put_char("O");
-                        t_put_char("S");
-                        t_put_char("D");
-                        t_put_space;
-                        t_put_char("O");
-                        t_put_char("N");
-                        t_put_char("|");
-                        t_put_char("O");
-                        t_put_char("F");
-                        t_put_char("F");
-                        t_put_char("|");
-                        t_put_char("T");
-                        t_put_char("O");
-                        t_put_char("G");
-                        t_put_char("G");
-                        t_put_char("L");
-                        t_put_char("E");
-                        t_put_char(",");
-                        t_put_space;
+                        t_put_char("M"); t_put_char("E"); t_put_char("N"); t_put_char("U"); t_put_space;
+                        t_put_char("U"); t_put_char("P"); t_put_char("|");
+                        t_put_char("D"); t_put_char("O"); t_put_char("W"); t_put_char("N");
+                        t_put_char(","); t_put_space;
 
-                        t_put_char("M");
-                        t_put_char("E");
-                        t_put_char("N");
-                        t_put_char("U");
-                        t_put_space;
-                        t_put_char("U");
-                        t_put_char("P");
-                        t_put_char("|");
-                        t_put_char("D");
-                        t_put_char("O");
-                        t_put_char("W");
-                        t_put_char("N");
-                        t_put_char(",");
-                        t_put_space;
+                        t_put_char("M"); t_put_char("O"); t_put_char("D"); t_put_char("E"); t_put_space;
+                        t_put_char("S"); t_put_char("E"); t_put_char("T"); t_put_space;
+                        t_put_char("<"); t_put_char("N"); t_put_char("A"); t_put_char("M"); t_put_char("E"); t_put_char(">");
+                        t_put_char(","); t_put_space;
 
-                        t_put_char("M");
-                        t_put_char("O");
-                        t_put_char("D");
-                        t_put_char("E");
-                        t_put_space;
-                        t_put_char("S");
-                        t_put_char("E");
-                        t_put_char("T");
-                        t_put_space;
-                        t_put_char("<");
-                        t_put_char("N");
-                        t_put_char("A");
-                        t_put_char("M");
-                        t_put_char("E");
-                        t_put_char(">");
-                        t_put_char(",");
-                        t_put_space;
+                        t_put_char("S"); t_put_char("T"); t_put_char("A"); t_put_char("T"); t_put_char("U"); t_put_char("S"); t_put_char("?");
+                        t_put_char(","); t_put_space;
 
-                        t_put_char("S");
-                        t_put_char("T");
-                        t_put_char("A");
-                        t_put_char("T");
-                        t_put_char("U");
-                        t_put_char("S");
-                        t_put_char("?");
-                        t_put_char(",");
-                        t_put_space;
-
-                        t_put_char("R");
-                        t_put_char("E");
-                        t_put_char("S");
-                        t_put_char("E");
-                        t_put_char("T");
+                        t_put_char("R"); t_put_char("E"); t_put_char("S"); t_put_char("E"); t_put_char("T");
                         t_put_crlf;
                     end
 
                     RESP_ERR: begin
-                        // ERR ...
-                        t_put_char("E");
-                        t_put_char("R");
-                        t_put_char("R");
-                        t_put_space;
-
+                        t_put_char("E"); t_put_char("R"); t_put_char("R"); t_put_space;
                         case (i_resp_err_code)
                             ERR_UNKNOWN_CMD: begin
-                                t_put_char("U");
-                                t_put_char("N");
-                                t_put_char("K");
-                                t_put_char("N");
-                                t_put_char("O");
-                                t_put_char("W");
-                                t_put_char("N");
-                                t_put_space;
-                                t_put_char("C");
-                                t_put_char("M");
-                                t_put_char("D");
+                                t_put_char("U"); t_put_char("N"); t_put_char("K"); t_put_char("N");
+                                t_put_char("O"); t_put_char("W"); t_put_char("N"); t_put_space;
+                                t_put_char("C"); t_put_char("M"); t_put_char("D");
                             end
-
                             ERR_BAD_ARG: begin
-                                t_put_char("B");
-                                t_put_char("A");
-                                t_put_char("D");
-                                t_put_space;
-                                t_put_char("A");
-                                t_put_char("R");
-                                t_put_char("G");
+                                t_put_char("B"); t_put_char("A"); t_put_char("D"); t_put_space;
+                                t_put_char("A"); t_put_char("R"); t_put_char("G");
                             end
-
                             ERR_LINK_DOWN: begin
-                                t_put_char("L");
-                                t_put_char("I");
-                                t_put_char("N");
-                                t_put_char("K");
-                                t_put_space;
-                                t_put_char("D");
-                                t_put_char("O");
-                                t_put_char("W");
-                                t_put_char("N");
+                                t_put_char("L"); t_put_char("I"); t_put_char("N"); t_put_char("K"); t_put_space;
+                                t_put_char("D"); t_put_char("O"); t_put_char("W"); t_put_char("N");
                             end
-
                             default: begin
-                                t_put_char("U");
-                                t_put_char("N");
-                                t_put_char("K");
-                                t_put_char("N");
-                                t_put_char("O");
-                                t_put_char("W");
-                                t_put_char("N");
+                                t_put_char("U"); t_put_char("N"); t_put_char("K"); t_put_char("N");
+                                t_put_char("O"); t_put_char("W"); t_put_char("N");
                             end
                         endcase
-
                         t_put_crlf;
                     end
 
                     default: begin
-                        // 默认输出一条 ERR
-                        t_put_char("E");
-                        t_put_char("R");
-                        t_put_char("R");
+                        t_put_char("E"); t_put_char("R"); t_put_char("R");
                         t_put_crlf;
                     end
                 endcase
 
-                // 接收这条结构化响应
                 o_resp_ready <= 1'b1;
 
                 r_buf       <= build_buf;
