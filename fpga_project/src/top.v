@@ -2,12 +2,12 @@
 
 /*********************************************************************************
 * Module       : top
-* Style tag    : top_full_timing_stream_demo_v1
+* Style tag    : top_full_timing_stream_demo_v2
 * Description  :
-*   720p60 full-timing video stream + high-priority UART user-data stream
-*   + text-command demo control plane
-*   + UART-controlled source pattern mode
-*   + UART-controlled OSD black box overlay
+*   720p60 full-timing video stream + UART text-command demo control plane
+*   + source pattern mode switch
+*   + menu OSD overlay
+*   + link-down red flash
 *
 * Text commands (terminated by '\n', "\r\n" also supported):
 *   OSD ON
@@ -26,25 +26,10 @@
 *   HELP?
 *
 * Notes:
-*   1) 保持 streaming mode + pixel_clk = 74.25MHz
-*   2) HDMI 始终使用本地稳定的 tp_vs/tp_hs/tp_de
-*   3) 返回视频流只作为 RGB 内容来源
-*   4) pattern mode 在 pixel_clk 域的帧边界生效，避免半帧切换
-*   5) 本文件假设以下模块已独立存在：
-*      reset_gen
-*      sync_fifo_fwft_v1
-*      uart_rx_byte_v1
-*      uart_tx_byte_v1
-*      video_symbol_packer_v1
-*      video_symbol_unpacker_v1
-*      stream_mux_qos_v1
-*      stream_demux_v1
-*      uart_word_packer_v1
-*      uart_word_unpacker_v1
-*      uart_line_parser_v1
-*      demo_ctrl_fsm_v1
-*      uart_resp_formatter_v1
-*      osd_box_overlay_v1
+*   1) HDMI timing 始终来自本地稳定 testpattern timing
+*   2) 返回视频流只作为 RGB 内容来源
+*   3) pattern mode 在帧边界生效，避免半帧切换
+*   4) RX 命令字节在 parser 前做单拍整形，避免重复采样
 *********************************************************************************/
 
 module top
@@ -267,6 +252,11 @@ module top
     wire [7:0]  uart_rx_cmd_byte_from_link;
     wire        uart_rx_cmd_byte_valid_from_link;
 
+    // 单拍整形后送 parser
+    reg         uart_rx_cmd_byte_valid_d  = 1'b0;
+    reg  [7:0]  uart_rx_cmd_byte_data_p1  = 8'd0;
+    reg         uart_rx_cmd_byte_fire_p1  = 1'b0;
+
     // uart_word_unpacker debug
     wire [7:0]  uart_rx_link_last_seq;
     wire [7:0]  uart_rx_link_expected_seq;
@@ -313,10 +303,13 @@ module top
     wire                       uart_tx_busy;
 
     //==========================================================================
-    // 10) OSD / pattern sync to pixel_clk
+    // 10) OSD / pattern / menu sync to pixel_clk
     //==========================================================================
-    reg         osd_enable_meta = 1'b0;
-    reg         osd_enable_pclk = 1'b0;
+    reg         osd_enable_meta   = 1'b0;
+    reg         osd_enable_pclk   = 1'b0;
+
+    reg  [2:0]  menu_index_meta   = 3'd0;
+    reg  [2:0]  menu_index_pclk   = 3'd0;
 
     //==========================================================================
     // 11) pixel 域流控 / 锁流
@@ -699,7 +692,6 @@ module top
         .i_fifo_empty        (rx_ctrl_fifo_empty),
         .o_fifo_rd_en        (rx_ctrl_fifo_rd_en),
 
-        // 改成直接交给 line parser，不再直接回显到 tx_o
         .i_byte_ready        (1'b1),
         .o_byte_data         (uart_rx_cmd_byte_from_link),
         .o_byte_valid        (uart_rx_cmd_byte_valid_from_link),
@@ -714,7 +706,27 @@ module top
     );
 
     //==========================================================================
-    // 23) 文本命令解析：UART byte stream -> line parser -> control fsm
+    // 23) RX 命令字节单拍整形
+    //==========================================================================
+    always @(posedge sys_clk or posedge sys_rst) begin
+        if (sys_rst) begin
+            uart_rx_cmd_byte_valid_d <= 1'b0;
+            uart_rx_cmd_byte_data_p1 <= 8'd0;
+            uart_rx_cmd_byte_fire_p1 <= 1'b0;
+        end
+        else begin
+            uart_rx_cmd_byte_valid_d <= uart_rx_cmd_byte_valid_from_link;
+            uart_rx_cmd_byte_fire_p1 <= 1'b0;
+
+            if (uart_rx_cmd_byte_valid_from_link && !uart_rx_cmd_byte_valid_d) begin
+                uart_rx_cmd_byte_data_p1 <= uart_rx_cmd_byte_from_link;
+                uart_rx_cmd_byte_fire_p1 <= 1'b1;
+            end
+        end
+    end
+
+    //==========================================================================
+    // 24) 文本命令解析：UART byte stream -> line parser -> control fsm
     //==========================================================================
     uart_line_parser_v1
     #(
@@ -725,8 +737,8 @@ module top
         .i_clk                   (sys_clk),
         .i_rst_n                 (~sys_rst),
 
-        .i_byte_data             (uart_rx_cmd_byte_from_link),
-        .i_byte_valid            (uart_rx_cmd_byte_valid_from_link),
+        .i_byte_data             (uart_rx_cmd_byte_data_p1),
+        .i_byte_valid            (uart_rx_cmd_byte_fire_p1),
 
         .o_line_data             (cmd_line_data),
         .o_line_len              (cmd_line_len),
@@ -772,7 +784,7 @@ module top
     );
 
     //==========================================================================
-    // 24) 响应格式化：structured response -> UART TX text response
+    // 25) 响应格式化：structured response -> UART TX text response
     //==========================================================================
     uart_resp_formatter_v1
     #(
@@ -819,7 +831,7 @@ module top
     );
 
     //==========================================================================
-    // 25) OSD / Pattern 同步到 pixel_clk
+    // 26) OSD / Pattern / Menu 同步到 pixel_clk
     //==========================================================================
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
@@ -827,17 +839,23 @@ module top
             osd_enable_pclk      <= 1'b0;
             pattern_mode_meta    <= 3'd0;
             pattern_mode_pending <= 3'd0;
+            menu_index_meta      <= 3'd0;
+            menu_index_pclk      <= 3'd0;
         end
         else begin
             osd_enable_meta      <= ctrl_osd_on_sys;
             osd_enable_pclk      <= osd_enable_meta;
+
             pattern_mode_meta    <= ctrl_active_mode_sys;
             pattern_mode_pending <= pattern_mode_meta;
+
+            menu_index_meta      <= ctrl_menu_index_sys;
+            menu_index_pclk      <= menu_index_meta;
         end
     end
 
     //==========================================================================
-    // 26) Pattern mode 在帧边界生效，并映射到 testpattern 的 I_mode
+    // 27) Pattern mode 在帧边界生效，并映射到 testpattern 的 I_mode
     //==========================================================================
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
@@ -912,23 +930,24 @@ module top
     end
 
     //==========================================================================
-    // 27) OSD 叠加：在屏幕中间覆盖黑块
+    // 28) 菜单 OSD 叠加
     //==========================================================================
-    osd_box_overlay_v1
+    osd_menu_overlay_v1
     #(
         .ACTIVE_H_START (16'd260),
         .ACTIVE_V_START (16'd25),
         .ACTIVE_W       (16'd1280),
         .ACTIVE_H       (16'd720),
-        .BOX_W          (16'd320),
-        .BOX_H          (16'd120)
+        .BOX_W          (16'd360),
+        .BOX_H          (16'd200)
     )
-    u_osd_box_overlay_v1
+    u_osd_menu_overlay_v1
     (
         .i_clk          (pixel_clk),
         .i_rst_n        (pixel_rst_n),
 
         .i_osd_enable   (osd_enable_pclk),
+        .i_menu_index   (menu_index_pclk),
 
         .i_h_cnt        (tp_h_cnt),
         .i_v_cnt        (tp_v_cnt),
@@ -941,7 +960,7 @@ module top
     );
 
     //==========================================================================
-    // 28) pixel 域：blink / prefill / VS 锁流
+    // 29) pixel 域：blink / prefill / VS 锁流
     //==========================================================================
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
@@ -989,7 +1008,7 @@ module top
     end
 
     //==========================================================================
-    // 29) FIFO 实例
+    // 30) FIFO 实例
     //==========================================================================
 
     // TX_VIDEO async FIFO
@@ -1070,7 +1089,7 @@ module top
     );
 
     //==========================================================================
-    // 30) HDMI 输出
+    // 31) HDMI 输出
     //==========================================================================
     assign O_adv7513_clk  = pixel_clk;
     assign O_adv7513_vs   = hdmi_vs;

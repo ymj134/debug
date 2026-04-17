@@ -1,0 +1,328 @@
+<?xml version="1" encoding="UTF-8"?>
+<GAO_CONFIG>
+    <Version>3.0</Version>
+    <Mode>Standard</Mode>
+    <AoCore index="0" sample_clock="sys_clk" trig_type="0" storage_depth="1024" window_num="1" capture_amount="1024" implementation="0" trigger_pos="0" module_name="top" force_trigger_by_falling_edge="false" capture_init_data_enabled="false">
+        <SignalList>
+            <Signal capture_enable="true">cmd_line_valid</Signal>
+            <Bus capture_enable="true" name="cmd_line_data[247:0]">
+                <Signal>cmd_line_data[247]</Signal>
+                <Signal>cmd_line_data[246]</Signal>
+                <Signal>cmd_line_data[245]</Signal>
+                <Signal>cmd_line_data[244]</Signal>
+                <Signal>cmd_line_data[243]</Signal>
+                <Signal>cmd_line_data[242]</Signal>
+                <Signal>cmd_line_data[241]</Signal>
+                <Signal>cmd_line_data[240]</Signal>
+                <Signal>cmd_line_data[239]</Signal>
+                <Signal>cmd_line_data[238]</Signal>
+                <Signal>cmd_line_data[237]</Signal>
+                <Signal>cmd_line_data[236]</Signal>
+                <Signal>cmd_line_data[235]</Signal>
+                <Signal>cmd_line_data[234]</Signal>
+                <Signal>cmd_line_data[233]</Signal>
+                <Signal>cmd_line_data[232]</Signal>
+                <Signal>cmd_line_data[231]</Signal>
+                <Signal>cmd_line_data[230]</Signal>
+                <Signal>cmd_line_data[229]</Signal>
+                <Signal>cmd_line_data[228]</Signal>
+                <Signal>cmd_line_data[227]</Signal>
+                <Signal>cmd_line_data[226]</Signal>
+                <Signal>cmd_line_data[225]</Signal>
+                <Signal>cmd_line_data[224]</Signal>
+                <Signal>cmd_line_data[223]</Signal>
+                <Signal>cmd_line_data[222]</Signal>
+                <Signal>cmd_line_data[221]</Signal>
+                <Signal>cmd_line_data[220]</Signal>
+                <Signal>cmd_line_data[219]</Signal>
+                <Signal>cmd_line_data[218]</Signal>
+                <Signal>cmd_line_data[217]</Signal>
+                <Signal>cmd_line_data[216]</Signal>
+                <Signal>cmd_line_data[215]</Signal>
+                <Signal>cmd_line_data[214]</Signal>
+                <Signal>cmd_line_data[213]</Signal>
+                <Signal>cmd_line_data[212]</Signal>
+                <Signal>cmd_line_data[211]</Signal>
+                <Signal>cmd_line_data[210]</Signal>
+                <Signal>cmd_line_data[209]</Signal>
+                <Signal>cmd_line_data[208]</Signal>
+                <Signal>cmd_line_data[207]</Signal>
+                <Signal>cmd_line_data[206]</Signal>
+                <Signal>cmd_line_data[205]</Signal>
+                <Signal>cmd_line_data[204]</Signal>
+                <Signal>cmd_line_data[203]</Signal>
+                <Signal>cmd_line_data[202]</Signal>
+                <Signal>cmd_line_data[201]</Signal>
+                <Signal>cmd_line_data[200]</Signal>
+                <Signal>cmd_line_data[199]</Signal>
+                <Signal>cmd_line_data[198]</Signal>
+                <Signal>cmd_line_data[197]</Signal>
+                <Signal>cmd_line_data[196]</Signal>
+                <Signal>cmd_line_data[195]</Signal>
+                <Signal>cmd_line_data[194]</Signal>
+                <Signal>cmd_line_data[193]</Signal>
+                <Signal>cmd_line_data[192]</Signal>
+                <Signal>cmd_line_data[191]</Signal>
+                <Signal>cmd_line_data[190]</Signal>
+                <Signal>cmd_line_data[189]</Signal>
+                <Signal>cmd_line_data[188]</Signal>
+                <Signal>cmd_line_data[187]</Signal>
+                <Signal>cmd_line_data[186]</Signal>
+                <Signal>cmd_line_data[185]</Signal>
+                <Signal>cmd_line_data[184]</Signal>
+                <Signal>cmd_line_data[183]</Signal>
+                <Signal>cmd_line_data[182]</Signal>
+                <Signal>cmd_line_data[181]</Signal>
+                <Signal>cmd_line_data[180]</Signal>
+                <Signal>cmd_line_data[179]</Signal>
+                <Signal>cmd_line_data[178]</Signal>
+                <Signal>cmd_line_data[177]</Signal>
+                <Signal>cmd_line_data[176]</Signal>
+                <Signal>cmd_line_data[175]</Signal>
+                <Signal>cmd_line_data[174]</Signal>
+                <Signal>cmd_line_data[173]</Signal>
+                <Signal>cmd_line_data[172]</Signal>
+                <Signal>cmd_line_data[171]</Signal>
+                <Signal>cmd_line_data[170]</Signal>
+                <Signal>cmd_line_data[169]</Signal>
+                <Signal>cmd_line_data[168]</Signal>
+                <Signal>cmd_line_data[167]</Signal>
+                <Signal>cmd_line_data[166]</Signal>
+                <Signal>cmd_line_data[165]</Signal>
+                <Signal>cmd_line_data[164]</Signal>
+                <Signal>cmd_line_data[163]</Signal>
+                <Signal>cmd_line_data[162]</Signal>
+                <Signal>cmd_line_data[161]</Signal>
+                <Signal>cmd_line_data[160]</Signal>
+                <Signal>cmd_line_data[159]</Signal>
+                <Signal>cmd_line_data[158]</Signal>
+                <Signal>cmd_line_data[157]</Signal>
+                <Signal>cmd_line_data[156]</Signal>
+                <Signal>cmd_line_data[155]</Signal>
+                <Signal>cmd_line_data[154]</Signal>
+                <Signal>cmd_line_data[153]</Signal>
+                <Signal>cmd_line_data[152]</Signal>
+                <Signal>cmd_line_data[151]</Signal>
+                <Signal>cmd_line_data[150]</Signal>
+                <Signal>cmd_line_data[149]</Signal>
+                <Signal>cmd_line_data[148]</Signal>
+                <Signal>cmd_line_data[147]</Signal>
+                <Signal>cmd_line_data[146]</Signal>
+                <Signal>cmd_line_data[145]</Signal>
+                <Signal>cmd_line_data[144]</Signal>
+                <Signal>cmd_line_data[143]</Signal>
+                <Signal>cmd_line_data[142]</Signal>
+                <Signal>cmd_line_data[141]</Signal>
+                <Signal>cmd_line_data[140]</Signal>
+                <Signal>cmd_line_data[139]</Signal>
+                <Signal>cmd_line_data[138]</Signal>
+                <Signal>cmd_line_data[137]</Signal>
+                <Signal>cmd_line_data[136]</Signal>
+                <Signal>cmd_line_data[135]</Signal>
+                <Signal>cmd_line_data[134]</Signal>
+                <Signal>cmd_line_data[133]</Signal>
+                <Signal>cmd_line_data[132]</Signal>
+                <Signal>cmd_line_data[131]</Signal>
+                <Signal>cmd_line_data[130]</Signal>
+                <Signal>cmd_line_data[129]</Signal>
+                <Signal>cmd_line_data[128]</Signal>
+                <Signal>cmd_line_data[127]</Signal>
+                <Signal>cmd_line_data[126]</Signal>
+                <Signal>cmd_line_data[125]</Signal>
+                <Signal>cmd_line_data[124]</Signal>
+                <Signal>cmd_line_data[123]</Signal>
+                <Signal>cmd_line_data[122]</Signal>
+                <Signal>cmd_line_data[121]</Signal>
+                <Signal>cmd_line_data[120]</Signal>
+                <Signal>cmd_line_data[119]</Signal>
+                <Signal>cmd_line_data[118]</Signal>
+                <Signal>cmd_line_data[117]</Signal>
+                <Signal>cmd_line_data[116]</Signal>
+                <Signal>cmd_line_data[115]</Signal>
+                <Signal>cmd_line_data[114]</Signal>
+                <Signal>cmd_line_data[113]</Signal>
+                <Signal>cmd_line_data[112]</Signal>
+                <Signal>cmd_line_data[111]</Signal>
+                <Signal>cmd_line_data[110]</Signal>
+                <Signal>cmd_line_data[109]</Signal>
+                <Signal>cmd_line_data[108]</Signal>
+                <Signal>cmd_line_data[107]</Signal>
+                <Signal>cmd_line_data[106]</Signal>
+                <Signal>cmd_line_data[105]</Signal>
+                <Signal>cmd_line_data[104]</Signal>
+                <Signal>cmd_line_data[103]</Signal>
+                <Signal>cmd_line_data[102]</Signal>
+                <Signal>cmd_line_data[101]</Signal>
+                <Signal>cmd_line_data[100]</Signal>
+                <Signal>cmd_line_data[99]</Signal>
+                <Signal>cmd_line_data[98]</Signal>
+                <Signal>cmd_line_data[97]</Signal>
+                <Signal>cmd_line_data[96]</Signal>
+                <Signal>cmd_line_data[95]</Signal>
+                <Signal>cmd_line_data[94]</Signal>
+                <Signal>cmd_line_data[93]</Signal>
+                <Signal>cmd_line_data[92]</Signal>
+                <Signal>cmd_line_data[91]</Signal>
+                <Signal>cmd_line_data[90]</Signal>
+                <Signal>cmd_line_data[89]</Signal>
+                <Signal>cmd_line_data[88]</Signal>
+                <Signal>cmd_line_data[87]</Signal>
+                <Signal>cmd_line_data[86]</Signal>
+                <Signal>cmd_line_data[85]</Signal>
+                <Signal>cmd_line_data[84]</Signal>
+                <Signal>cmd_line_data[83]</Signal>
+                <Signal>cmd_line_data[82]</Signal>
+                <Signal>cmd_line_data[81]</Signal>
+                <Signal>cmd_line_data[80]</Signal>
+                <Signal>cmd_line_data[79]</Signal>
+                <Signal>cmd_line_data[78]</Signal>
+                <Signal>cmd_line_data[77]</Signal>
+                <Signal>cmd_line_data[76]</Signal>
+                <Signal>cmd_line_data[75]</Signal>
+                <Signal>cmd_line_data[74]</Signal>
+                <Signal>cmd_line_data[73]</Signal>
+                <Signal>cmd_line_data[72]</Signal>
+                <Signal>cmd_line_data[71]</Signal>
+                <Signal>cmd_line_data[70]</Signal>
+                <Signal>cmd_line_data[69]</Signal>
+                <Signal>cmd_line_data[68]</Signal>
+                <Signal>cmd_line_data[67]</Signal>
+                <Signal>cmd_line_data[66]</Signal>
+                <Signal>cmd_line_data[65]</Signal>
+                <Signal>cmd_line_data[64]</Signal>
+                <Signal>cmd_line_data[63]</Signal>
+                <Signal>cmd_line_data[62]</Signal>
+                <Signal>cmd_line_data[61]</Signal>
+                <Signal>cmd_line_data[60]</Signal>
+                <Signal>cmd_line_data[59]</Signal>
+                <Signal>cmd_line_data[58]</Signal>
+                <Signal>cmd_line_data[57]</Signal>
+                <Signal>cmd_line_data[56]</Signal>
+                <Signal>cmd_line_data[55]</Signal>
+                <Signal>cmd_line_data[54]</Signal>
+                <Signal>cmd_line_data[53]</Signal>
+                <Signal>cmd_line_data[52]</Signal>
+                <Signal>cmd_line_data[51]</Signal>
+                <Signal>cmd_line_data[50]</Signal>
+                <Signal>cmd_line_data[49]</Signal>
+                <Signal>cmd_line_data[48]</Signal>
+                <Signal>cmd_line_data[47]</Signal>
+                <Signal>cmd_line_data[46]</Signal>
+                <Signal>cmd_line_data[45]</Signal>
+                <Signal>cmd_line_data[44]</Signal>
+                <Signal>cmd_line_data[43]</Signal>
+                <Signal>cmd_line_data[42]</Signal>
+                <Signal>cmd_line_data[41]</Signal>
+                <Signal>cmd_line_data[40]</Signal>
+                <Signal>cmd_line_data[39]</Signal>
+                <Signal>cmd_line_data[38]</Signal>
+                <Signal>cmd_line_data[37]</Signal>
+                <Signal>cmd_line_data[36]</Signal>
+                <Signal>cmd_line_data[35]</Signal>
+                <Signal>cmd_line_data[34]</Signal>
+                <Signal>cmd_line_data[33]</Signal>
+                <Signal>cmd_line_data[32]</Signal>
+                <Signal>cmd_line_data[31]</Signal>
+                <Signal>cmd_line_data[30]</Signal>
+                <Signal>cmd_line_data[29]</Signal>
+                <Signal>cmd_line_data[28]</Signal>
+                <Signal>cmd_line_data[27]</Signal>
+                <Signal>cmd_line_data[26]</Signal>
+                <Signal>cmd_line_data[25]</Signal>
+                <Signal>cmd_line_data[24]</Signal>
+                <Signal>cmd_line_data[23]</Signal>
+                <Signal>cmd_line_data[22]</Signal>
+                <Signal>cmd_line_data[21]</Signal>
+                <Signal>cmd_line_data[20]</Signal>
+                <Signal>cmd_line_data[19]</Signal>
+                <Signal>cmd_line_data[18]</Signal>
+                <Signal>cmd_line_data[17]</Signal>
+                <Signal>cmd_line_data[16]</Signal>
+                <Signal>cmd_line_data[15]</Signal>
+                <Signal>cmd_line_data[14]</Signal>
+                <Signal>cmd_line_data[13]</Signal>
+                <Signal>cmd_line_data[12]</Signal>
+                <Signal>cmd_line_data[11]</Signal>
+                <Signal>cmd_line_data[10]</Signal>
+                <Signal>cmd_line_data[9]</Signal>
+                <Signal>cmd_line_data[8]</Signal>
+                <Signal>cmd_line_data[7]</Signal>
+                <Signal>cmd_line_data[6]</Signal>
+                <Signal>cmd_line_data[5]</Signal>
+                <Signal>cmd_line_data[4]</Signal>
+                <Signal>cmd_line_data[3]</Signal>
+                <Signal>cmd_line_data[2]</Signal>
+                <Signal>cmd_line_data[1]</Signal>
+                <Signal>cmd_line_data[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="cmd_line_len[7:0]">
+                <Signal>cmd_line_len[7]</Signal>
+                <Signal>cmd_line_len[6]</Signal>
+                <Signal>cmd_line_len[5]</Signal>
+                <Signal>cmd_line_len[4]</Signal>
+                <Signal>cmd_line_len[3]</Signal>
+                <Signal>cmd_line_len[2]</Signal>
+                <Signal>cmd_line_len[1]</Signal>
+                <Signal>cmd_line_len[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">cmd_line_overflow_sticky</Signal>
+            <Bus capture_enable="true" name="uart_rx_cmd_byte_from_link[7:0]">
+                <Signal>uart_rx_cmd_byte_from_link[7]</Signal>
+                <Signal>uart_rx_cmd_byte_from_link[6]</Signal>
+                <Signal>uart_rx_cmd_byte_from_link[5]</Signal>
+                <Signal>uart_rx_cmd_byte_from_link[4]</Signal>
+                <Signal>uart_rx_cmd_byte_from_link[3]</Signal>
+                <Signal>uart_rx_cmd_byte_from_link[2]</Signal>
+                <Signal>uart_rx_cmd_byte_from_link[1]</Signal>
+                <Signal>uart_rx_cmd_byte_from_link[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">uart_rx_cmd_byte_valid_from_link</Signal>
+            <Signal capture_enable="true">cmd_empty_line_seen_pulse</Signal>
+            <Signal capture_enable="true">fsm_unknown_cmd_sticky</Signal>
+        </SignalList>
+        <Triggers>
+            <Trigger index="0">
+                <SignalList>
+                    <Signal>cmd_line_valid</Signal>
+                </SignalList>
+            </Trigger>
+            <Trigger index="1"/>
+            <Trigger index="2"/>
+            <Trigger index="3"/>
+            <Trigger index="4"/>
+            <Trigger index="5"/>
+            <Trigger index="6"/>
+            <Trigger index="7"/>
+            <Trigger index="8"/>
+            <Trigger index="9"/>
+            <Trigger index="10"/>
+            <Trigger index="11"/>
+            <Trigger index="12"/>
+            <Trigger index="13"/>
+            <Trigger index="14"/>
+            <Trigger index="15"/>
+        </Triggers>
+        <MatchUnits>
+            <MatchUnit index="0" enabled="1" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="1" value1="0" trigger="0"/>
+            <MatchUnit index="1" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="2" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="3" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="4" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="5" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="6" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="7" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="8" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="9" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="10" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="11" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="12" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="13" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="14" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="15" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+        </MatchUnits>
+        <Expressions type="Static">
+            <Expression>M0</Expression>
+        </Expressions>
+    </AoCore>
+    <GAO_ID>1001000011111001</GAO_ID>
+</GAO_CONFIG>
