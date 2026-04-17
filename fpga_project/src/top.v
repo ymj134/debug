@@ -2,24 +2,28 @@
 
 /*********************************************************************************
 * Module       : top
-* Style tag    : top_full_timing_stream_uart_v4
+* Style tag    : top_full_timing_stream_demo_v1
 * Description  :
 *   720p60 full-timing video stream + high-priority UART user-data stream
+*   + text-command demo control plane
 *   + UART-controlled source pattern mode
 *   + UART-controlled OSD black box overlay
 *
-* OSD commands:
-*   '1' : OSD ON
-*   '0' : OSD OFF
-*   'T' : OSD TOGGLE
-*
-* Pattern commands (reuse uart_cmd_decoder_v2 A~F, but remap here):
-*   'A' : MODE 0 -> color bar
-*   'B' : MODE 1 -> net grid
-*   'C' : MODE 2 -> gray
-*   'D' : MODE 3 -> black-white square
-*   'E' : MODE 4 -> single red
-*   'F' : MODE 5 -> single green
+* Text commands (terminated by '\n', "\r\n" also supported):
+*   OSD ON
+*   OSD OFF
+*   OSD TOGGLE
+*   MENU UP
+*   MENU DOWN
+*   MODE SET COLORBAR
+*   MODE SET NETGRID
+*   MODE SET GRAY
+*   MODE SET BWSQUARE
+*   MODE SET RED
+*   MODE SET GREEN
+*   STATUS?
+*   RESET
+*   HELP?
 *
 * Notes:
 *   1) 保持 streaming mode + pixel_clk = 74.25MHz
@@ -37,7 +41,9 @@
 *      stream_demux_v1
 *      uart_word_packer_v1
 *      uart_word_unpacker_v1
-*      uart_cmd_decoder_v2
+*      uart_line_parser_v1
+*      demo_ctrl_fsm_v1
+*      uart_resp_formatter_v1
 *      osd_box_overlay_v1
 *********************************************************************************/
 
@@ -84,15 +90,16 @@ module top
     localparam [15:0] C_V_BPORCH = 16'd20;
     localparam [15:0] C_V_RES    = 16'd720;
 
-    // RX 视频启动前预填充时间（pixel_clk 周期）
     localparam [15:0] RX_PREFILL_CYCLES = 16'd1024;
 
-    // UART 参数（sys_clk≈78.125MHz, baud=115200 -> 78125000/115200≈678）
+    // UART 参数（sys_clk≈78.125MHz, baud=115200）
     localparam integer UART_CLKS_PER_BIT = 678;
 
-    // 控制 FIFO 深度参数
     localparam integer CTRL_FIFO_DEPTH  = 64;
     localparam integer CTRL_FIFO_AW     = 6;
+
+    localparam integer CMD_MAX_CHARS    = 31;
+    localparam integer RESP_MAX_CHARS   = 96;
 
     //==========================================================================
     // 1) RoraLink streaming 用户接口
@@ -151,7 +158,7 @@ module top
     wire [7:0]  tp_g;
     wire [7:0]  tp_b;
 
-    // testpattern 模式控制（pixel_clk 域）
+    // pattern / source mode control (pixel_clk 域)
     reg  [2:0]  pattern_mode_meta    = 3'd0;
     reg  [2:0]  pattern_mode_pending = 3'd0;
     reg  [2:0]  pattern_mode_active  = 3'd0;
@@ -163,6 +170,9 @@ module top
 
     wire        tp_frame_start;
     assign tp_frame_start = (tp_h_cnt == 16'd0) && (tp_v_cnt == 16'd0);
+
+    reg         tp_vs_d   = 1'b0;
+    reg  [7:0]  blink_cnt = 8'd0;
 
     //==========================================================================
     // 4) TX: full timing symbol packer -> TX_VIDEO FIFO
@@ -233,7 +243,6 @@ module top
     wire        demux_dbg_is_video;
     wire        demux_dbg_is_ctrl;
 
-    // RX_VIDEO async FIFO（沿用现有 36-bit FIFO）
     wire [35:0] rx_video_fifo_din;
     wire [35:0] rx_video_fifo_dout;
     wire        rx_video_fifo_empty;
@@ -253,12 +262,12 @@ module top
     wire        rx_stream_underflow_sticky;
 
     //==========================================================================
-    // 9) RX: UART control stream -> uart_word_unpacker -> UART TX
+    // 9) RX: UART control stream -> uart_word_unpacker -> line parser -> ctrl fsm
     //==========================================================================
-    wire [7:0]  uart_tx_byte_from_link;
-    wire        uart_tx_byte_valid_from_link;
-    wire        uart_tx_ready;
+    wire [7:0]  uart_rx_cmd_byte_from_link;
+    wire        uart_rx_cmd_byte_valid_from_link;
 
+    // uart_word_unpacker debug
     wire [7:0]  uart_rx_link_last_seq;
     wire [7:0]  uart_rx_link_expected_seq;
     wire        uart_rx_type_err_sticky;
@@ -266,18 +275,46 @@ module top
     wire        uart_rx_crc_err_sticky;
     wire        uart_rx_seq_err_sticky;
 
-    wire        uart_tx_busy;
+    // line parser
+    wire [CMD_MAX_CHARS*8-1:0] cmd_line_data;
+    wire [7:0]                 cmd_line_len;
+    wire                       cmd_line_valid;
+    wire                       cmd_line_overflow_sticky;
+    wire                       cmd_empty_line_seen_pulse;
+
+    // demo control FSM state
+    wire                       ctrl_osd_on_sys;
+    wire [2:0]                 ctrl_menu_index_sys;
+    wire [2:0]                 ctrl_active_mode_sys;
+
+    // demo control FSM structured response
+    wire                       resp_valid;
+    wire                       resp_ready;
+    wire [3:0]                 resp_kind;
+    wire [3:0]                 resp_err_code;
+    wire                       resp_link_up;
+    wire                       resp_osd_on;
+    wire [2:0]                 resp_menu_index;
+    wire [2:0]                 resp_active_mode;
+
+    // FSM debug
+    wire                       fsm_unknown_cmd_sticky;
+    wire                       fsm_bad_arg_sticky;
+    wire                       fsm_linkdown_cmd_sticky;
+    wire                       fsm_cmd_while_busy_sticky;
+
+    // formatter -> uart tx
+    wire [7:0]                 resp_uart_byte;
+    wire                       resp_uart_byte_valid;
+    wire                       resp_fmt_busy;
+    wire [7:0]                 resp_fmt_dbg_len;
+    wire                       resp_fmt_overflow_sticky;
+    wire                       uart_tx_ready;
+    wire                       uart_tx_busy;
 
     //==========================================================================
-    // 10) UART 命令解码 / OSD / Pattern 控制
+    // 10) OSD / pattern sync to pixel_clk
     //==========================================================================
-    wire        osd_enable_sys;
-    wire [2:0]  pattern_mode_sys;
-    wire        status_req_pulse_sys;
-    wire [7:0]  osd_last_cmd;
-    wire        osd_cmd_seen_pulse;
-    wire        osd_unknown_cmd_sticky;
-
     reg         osd_enable_meta = 1'b0;
     reg         osd_enable_pclk = 1'b0;
 
@@ -304,39 +341,47 @@ module top
     assign rx_video_ready_pclk = rx_read_enable_pclk;
 
     //==========================================================================
-    // 12) HDMI 输出 / OSD
+    // 12) HDMI 输出 / OSD / link down red flash
     //==========================================================================
     wire        hdmi_vs;
     wire        hdmi_hs;
     wire        hdmi_de;
 
+    wire [23:0] link_up_rgb;
+    wire [23:0] red_flash_rgb;
     wire [23:0] base_rgb;
     wire [23:0] osd_rgb;
     wire        osd_in_box;
 
-    // HDMI 始终使用本地稳定 timing
     assign hdmi_vs = tp_vs;
     assign hdmi_hs = tp_hs;
     assign hdmi_de = tp_de;
 
-    // 锁流后，仅在本地 active 区、且返回流当前为有效视频符号时，显示返回 RGB
-    assign base_rgb =
+    assign link_up_rgb =
         (tp_de && rx_stream_enable_pclk && rx_sym_valid && rx_sym_de) ? rx_sym_rgb
                                                                       : 24'h000000;
+
+    assign red_flash_rgb = blink_cnt[5] ? 24'hFF0000 : 24'h200000;
+
+    assign base_rgb = channel_up_pclk ? link_up_rgb : (tp_de ? red_flash_rgb : 24'h000000);
 
     //==========================================================================
     // 13) 内部调试信号 / LED
     //==========================================================================
     wire [3:0] test_sig /* synthesis syn_keep=1 */;
 
-    assign test_sig[0] = tx_video_overflow_sticky;
-    assign test_sig[1] = rx_stream_underflow_sticky;
-    assign test_sig[2] = tx_ctrl_overflow_sticky_from_packer;
-    assign test_sig[3] = osd_unknown_cmd_sticky |
+    assign test_sig[0] = tx_video_overflow_sticky | rx_stream_underflow_sticky;
+    assign test_sig[1] = tx_ctrl_overflow_sticky_from_packer |
                          uart_rx_crc_err_sticky |
                          uart_rx_seq_err_sticky |
                          uart_rx_type_err_sticky |
                          uart_rx_channel_err_sticky;
+    assign test_sig[2] = cmd_line_overflow_sticky |
+                         resp_fmt_overflow_sticky;
+    assign test_sig[3] = fsm_unknown_cmd_sticky |
+                         fsm_bad_arg_sticky |
+                         fsm_linkdown_cmd_sticky |
+                         fsm_cmd_while_busy_sticky;
 
     assign sfp1_tx_disable_o = 1'b0;
     assign sfp2_tx_disable_o = 1'b0;
@@ -639,7 +684,7 @@ module top
     );
 
     //==========================================================================
-    // 22) RX 控制恢复：RX_CTRL FIFO -> UART TX
+    // 22) RX 控制恢复：RX_CTRL FIFO -> UART byte stream from link
     //==========================================================================
     uart_word_unpacker_v1
     #(
@@ -654,9 +699,10 @@ module top
         .i_fifo_empty        (rx_ctrl_fifo_empty),
         .o_fifo_rd_en        (rx_ctrl_fifo_rd_en),
 
-        .i_byte_ready        (uart_tx_ready),
-        .o_byte_data         (uart_tx_byte_from_link),
-        .o_byte_valid        (uart_tx_byte_valid_from_link),
+        // 改成直接交给 line parser，不再直接回显到 tx_o
+        .i_byte_ready        (1'b1),
+        .o_byte_data         (uart_rx_cmd_byte_from_link),
+        .o_byte_valid        (uart_rx_cmd_byte_valid_from_link),
 
         .o_dbg_last_seq      (uart_rx_link_last_seq),
         .o_dbg_expected_seq  (uart_rx_link_expected_seq),
@@ -665,6 +711,94 @@ module top
         .o_channel_err_sticky(uart_rx_channel_err_sticky),
         .o_crc_err_sticky    (uart_rx_crc_err_sticky),
         .o_seq_err_sticky    (uart_rx_seq_err_sticky)
+    );
+
+    //==========================================================================
+    // 23) 文本命令解析：UART byte stream -> line parser -> control fsm
+    //==========================================================================
+    uart_line_parser_v1
+    #(
+        .MAX_LINE_CHARS(CMD_MAX_CHARS)
+    )
+    u_uart_line_parser_v1
+    (
+        .i_clk                   (sys_clk),
+        .i_rst_n                 (~sys_rst),
+
+        .i_byte_data             (uart_rx_cmd_byte_from_link),
+        .i_byte_valid            (uart_rx_cmd_byte_valid_from_link),
+
+        .o_line_data             (cmd_line_data),
+        .o_line_len              (cmd_line_len),
+        .o_line_valid            (cmd_line_valid),
+
+        .o_overflow_sticky       (cmd_line_overflow_sticky),
+        .o_empty_line_seen_pulse (cmd_empty_line_seen_pulse)
+    );
+
+    demo_ctrl_fsm_v1
+    #(
+        .MAX_LINE_CHARS(CMD_MAX_CHARS),
+        .MODE_COUNT(6)
+    )
+    u_demo_ctrl_fsm_v1
+    (
+        .i_clk                (sys_clk),
+        .i_rst_n              (~sys_rst),
+
+        .i_link_up            (channel_up),
+
+        .i_cmd_data           (cmd_line_data),
+        .i_cmd_len            (cmd_line_len),
+        .i_cmd_valid          (cmd_line_valid),
+
+        .o_osd_on             (ctrl_osd_on_sys),
+        .o_menu_index         (ctrl_menu_index_sys),
+        .o_active_mode        (ctrl_active_mode_sys),
+
+        .o_resp_valid         (resp_valid),
+        .i_resp_ready         (resp_ready),
+        .o_resp_kind          (resp_kind),
+        .o_resp_err_code      (resp_err_code),
+        .o_resp_link_up       (resp_link_up),
+        .o_resp_osd_on        (resp_osd_on),
+        .o_resp_menu_index    (resp_menu_index),
+        .o_resp_active_mode   (resp_active_mode),
+
+        .o_unknown_cmd_sticky (fsm_unknown_cmd_sticky),
+        .o_bad_arg_sticky     (fsm_bad_arg_sticky),
+        .o_linkdown_cmd_sticky(fsm_linkdown_cmd_sticky),
+        .o_cmd_while_busy_sticky(fsm_cmd_while_busy_sticky)
+    );
+
+    //==========================================================================
+    // 24) 响应格式化：structured response -> UART TX text response
+    //==========================================================================
+    uart_resp_formatter_v1
+    #(
+        .MAX_RESP_CHARS(RESP_MAX_CHARS)
+    )
+    u_uart_resp_formatter_v1
+    (
+        .i_clk               (sys_clk),
+        .i_rst_n             (~sys_rst),
+
+        .i_resp_valid        (resp_valid),
+        .o_resp_ready        (resp_ready),
+        .i_resp_kind         (resp_kind),
+        .i_resp_err_code     (resp_err_code),
+        .i_resp_link_up      (resp_link_up),
+        .i_resp_osd_on       (resp_osd_on),
+        .i_resp_menu_index   (resp_menu_index),
+        .i_resp_active_mode  (resp_active_mode),
+
+        .o_byte_data         (resp_uart_byte),
+        .o_byte_valid        (resp_uart_byte_valid),
+        .i_byte_ready        (uart_tx_ready),
+
+        .o_busy              (resp_fmt_busy),
+        .o_dbg_len           (resp_fmt_dbg_len),
+        .o_overflow_sticky   (resp_fmt_overflow_sticky)
     );
 
     uart_tx_byte_v1
@@ -676,8 +810,8 @@ module top
         .i_clk          (sys_clk),
         .i_rst_n        (~sys_rst),
 
-        .i_byte_data    (uart_tx_byte_from_link),
-        .i_byte_valid   (uart_tx_byte_valid_from_link),
+        .i_byte_data    (resp_uart_byte),
+        .i_byte_valid   (resp_uart_byte_valid),
         .o_byte_ready   (uart_tx_ready),
 
         .o_uart_tx      (tx_o),
@@ -685,27 +819,7 @@ module top
     );
 
     //==========================================================================
-    // 23) UART 命令解码：监听返回到本地的 UART 字节
-    //==========================================================================
-    uart_cmd_decoder_v2 u_uart_cmd_decoder_v2
-    (
-        .i_clk               (sys_clk),
-        .i_rst_n             (~sys_rst),
-
-        .i_byte_data         (uart_tx_byte_from_link),
-        .i_byte_valid        (uart_tx_byte_valid_from_link),
-
-        .o_osd_enable        (osd_enable_sys),
-        .o_pattern_mode      (pattern_mode_sys),
-        .o_status_req_pulse  (status_req_pulse_sys),
-
-        .o_last_cmd          (osd_last_cmd),
-        .o_cmd_seen_pulse    (osd_cmd_seen_pulse),
-        .o_unknown_cmd_sticky(osd_unknown_cmd_sticky)
-    );
-
-    //==========================================================================
-    // 24) OSD / Pattern 跨时钟同步到 pixel_clk
+    // 25) OSD / Pattern 同步到 pixel_clk
     //==========================================================================
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
@@ -715,15 +829,15 @@ module top
             pattern_mode_pending <= 3'd0;
         end
         else begin
-            osd_enable_meta      <= osd_enable_sys;
+            osd_enable_meta      <= ctrl_osd_on_sys;
             osd_enable_pclk      <= osd_enable_meta;
-            pattern_mode_meta    <= pattern_mode_sys;
+            pattern_mode_meta    <= ctrl_active_mode_sys;
             pattern_mode_pending <= pattern_mode_meta;
         end
     end
 
     //==========================================================================
-    // 25) Pattern mode 在帧边界生效，并映射到 testpattern 的 I_mode
+    // 26) Pattern mode 在帧边界生效，并映射到 testpattern 的 I_mode
     //==========================================================================
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
@@ -739,7 +853,7 @@ module top
 
                 case (pattern_mode_pending)
                     3'd0: begin
-                        // A -> color bar
+                        // COLORBAR
                         tp_mode_active     <= 3'b000;
                         tp_single_r_active <= 8'd0;
                         tp_single_g_active <= 8'd255;
@@ -747,7 +861,7 @@ module top
                     end
 
                     3'd1: begin
-                        // B -> net grid
+                        // NETGRID
                         tp_mode_active     <= 3'b001;
                         tp_single_r_active <= 8'd0;
                         tp_single_g_active <= 8'd0;
@@ -755,7 +869,7 @@ module top
                     end
 
                     3'd2: begin
-                        // C -> gray
+                        // GRAY
                         tp_mode_active     <= 3'b010;
                         tp_single_r_active <= 8'd0;
                         tp_single_g_active <= 8'd0;
@@ -763,7 +877,7 @@ module top
                     end
 
                     3'd3: begin
-                        // D -> black-white square
+                        // BWSQUARE
                         tp_mode_active     <= 3'b011;
                         tp_single_r_active <= 8'd0;
                         tp_single_g_active <= 8'd0;
@@ -771,7 +885,7 @@ module top
                     end
 
                     3'd4: begin
-                        // E -> single red
+                        // RED
                         tp_mode_active     <= 3'b111;
                         tp_single_r_active <= 8'd255;
                         tp_single_g_active <= 8'd0;
@@ -779,7 +893,7 @@ module top
                     end
 
                     3'd5: begin
-                        // F -> single green
+                        // GREEN
                         tp_mode_active     <= 3'b111;
                         tp_single_r_active <= 8'd0;
                         tp_single_g_active <= 8'd255;
@@ -798,7 +912,7 @@ module top
     end
 
     //==========================================================================
-    // 26) OSD 叠加：在屏幕中间覆盖黑块
+    // 27) OSD 叠加：在屏幕中间覆盖黑块
     //==========================================================================
     osd_box_overlay_v1
     #(
@@ -827,21 +941,28 @@ module top
     );
 
     //==========================================================================
-    // 27) pixel 域：预填充 + VS 锁流
+    // 28) pixel 域：blink / prefill / VS 锁流
     //==========================================================================
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
-            channel_up_meta_pclk   <= 1'b0;
-            channel_up_pclk        <= 1'b0;
-            channel_up_pclk_d      <= 1'b0;
+            tp_vs_d               <= 1'b0;
+            blink_cnt             <= 8'd0;
 
-            rx_prefill_cnt         <= 16'd0;
-            rx_read_enable_pclk    <= 1'b0;
-            rx_stream_enable_pclk  <= 1'b0;
+            channel_up_meta_pclk  <= 1'b0;
+            channel_up_pclk       <= 1'b0;
+            channel_up_pclk_d     <= 1'b0;
 
-            rx_sym_vs_d            <= 1'b0;
+            rx_prefill_cnt        <= 16'd0;
+            rx_read_enable_pclk   <= 1'b0;
+            rx_stream_enable_pclk <= 1'b0;
+
+            rx_sym_vs_d           <= 1'b0;
         end
         else begin
+            tp_vs_d <= tp_vs;
+            if (tp_vs_d && !tp_vs)
+                blink_cnt <= blink_cnt + 8'd1;
+
             channel_up_meta_pclk <= channel_up;
             channel_up_pclk      <= channel_up_meta_pclk;
             channel_up_pclk_d    <= channel_up_pclk;
@@ -868,7 +989,7 @@ module top
     end
 
     //==========================================================================
-    // 28) FIFO 实例
+    // 29) FIFO 实例
     //==========================================================================
 
     // TX_VIDEO async FIFO
@@ -949,7 +1070,7 @@ module top
     );
 
     //==========================================================================
-    // 29) HDMI 输出
+    // 30) HDMI 输出
     //==========================================================================
     assign O_adv7513_clk  = pixel_clk;
     assign O_adv7513_vs   = hdmi_vs;
