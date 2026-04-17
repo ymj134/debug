@@ -127,6 +127,25 @@ module top
     wire                  sys_reset;
 
     //==========================================================================
+    // Video path reinit on link down/up
+    //==========================================================================
+    reg         channel_up_d_sys         = 1'b0;
+    reg [11:0]  video_reinit_cnt_sys     = 12'd0;
+
+    wire        video_reinit_start_sys;
+    wire        video_path_reinit_sys;
+    wire        sys_video_rst;
+    wire        sys_video_rst_n;
+
+    reg         video_reinit_meta_pclk   = 1'b0;
+    reg         video_reinit_pclk        = 1'b0;
+
+    wire        pixel_video_rst;
+    wire        pixel_video_rst_n;
+
+    wire        video_fifo_reset_async;
+
+    //==========================================================================
     // 3) pixel / 本地 720p 源
     //==========================================================================
     wire        pixel_clk;
@@ -533,13 +552,54 @@ module top
         .RoraLink_8B10B_Top_gt_pcs_rx_reset_i     ( gt_pcs_rx_reset    )
     );
 
+    assign video_reinit_start_sys = (channel_up ^ channel_up_d_sys);
+    assign video_path_reinit_sys  = (video_reinit_cnt_sys != 12'd0);
+
+    assign sys_video_rst   = sys_rst | video_path_reinit_sys;
+    assign sys_video_rst_n = ~sys_video_rst;
+
+    // 异步 FIFO 的 reset 直接用这个异步信号
+    assign video_fifo_reset_async = (~resetn_i) | video_path_reinit_sys;
+
+    always @(posedge sys_clk or posedge sys_rst) begin
+        if (sys_rst) begin
+            channel_up_d_sys     <= 1'b0;
+            video_reinit_cnt_sys <= 12'd0;
+        end
+        else begin
+            channel_up_d_sys <= channel_up;
+
+            // 链路 down / up 任一边沿，都触发一次视频路径 reinit
+            if (video_reinit_start_sys) begin
+                video_reinit_cnt_sys <= 12'd2048;
+            end
+            else if (video_reinit_cnt_sys != 12'd0) begin
+                video_reinit_cnt_sys <= video_reinit_cnt_sys - 12'd1;
+            end
+        end
+    end
+
+    assign pixel_video_rst   = pixel_rst | video_reinit_pclk;
+    assign pixel_video_rst_n = ~pixel_video_rst;
+
+    always @(posedge pixel_clk or posedge pixel_rst) begin
+        if (pixel_rst) begin
+            video_reinit_meta_pclk <= 1'b0;
+            video_reinit_pclk      <= 1'b0;
+        end
+        else begin
+            video_reinit_meta_pclk <= video_path_reinit_sys;
+            video_reinit_pclk      <= video_reinit_meta_pclk;
+        end
+    end
+
     //==========================================================================
     // 17) 视频发送端：打包完整 timing -> TX_VIDEO FIFO
     //==========================================================================
     video_symbol_packer_v1 u_video_symbol_packer_v1
     (
         .i_clk              (pixel_clk),
-        .i_rst_n            (pixel_rst_n),
+        .i_rst_n            (pixel_video_rst_n),
 
         .i_enable           (1'b1),
         .i_vs               (tp_vs),
@@ -603,7 +663,7 @@ module top
     u_stream_mux_qos_v1
     (
         .i_clk               (sys_clk),
-        .i_rst_n             (~sys_rst),
+        .i_rst_n             (sys_video_rst_n),
 
         .i_video_fifo_dout   (tx_video_fifo_dout[31:0]),
         .i_video_fifo_empty  (tx_video_fifo_empty),
@@ -633,7 +693,7 @@ module top
     stream_demux_v1 u_stream_demux_v1
     (
         .i_clk                  (sys_clk),
-        .i_rst_n                (~sys_rst),
+        .i_rst_n                (sys_video_rst_n),
 
         .i_rx_data              (user_rx_data),
         .i_rx_valid             (user_rx_valid),
@@ -659,7 +719,7 @@ module top
     video_symbol_unpacker_v1 u_video_symbol_unpacker_v1
     (
         .i_clk              (pixel_clk),
-        .i_rst_n            (pixel_rst_n),
+        .i_rst_n            (pixel_video_rst_n),
 
         .i_fifo_dout        (rx_video_fifo_dout[31:0]),
         .i_fifo_empty       (rx_video_fifo_empty),
@@ -962,32 +1022,32 @@ module top
     //==========================================================================
     // 29) pixel 域：blink / prefill / VS 锁流
     //==========================================================================
-    always @(posedge pixel_clk or negedge pixel_rst_n) begin
-        if (!pixel_rst_n) begin
+    always @(posedge pixel_clk or negedge pixel_video_rst_n) begin
+        if (!pixel_video_rst_n) begin
             tp_vs_d               <= 1'b0;
             blink_cnt             <= 8'd0;
-
+    
             channel_up_meta_pclk  <= 1'b0;
             channel_up_pclk       <= 1'b0;
             channel_up_pclk_d     <= 1'b0;
-
+    
             rx_prefill_cnt        <= 16'd0;
             rx_read_enable_pclk   <= 1'b0;
             rx_stream_enable_pclk <= 1'b0;
-
+    
             rx_sym_vs_d           <= 1'b0;
         end
         else begin
             tp_vs_d <= tp_vs;
             if (tp_vs_d && !tp_vs)
                 blink_cnt <= blink_cnt + 8'd1;
-
+    
             channel_up_meta_pclk <= channel_up;
             channel_up_pclk      <= channel_up_meta_pclk;
             channel_up_pclk_d    <= channel_up_pclk;
-
+    
             rx_sym_vs_d <= rx_sym_vs;
-
+    
             if (!channel_up_pclk) begin
                 rx_prefill_cnt        <= 16'd0;
                 rx_read_enable_pclk   <= 1'b0;
@@ -1000,7 +1060,7 @@ module top
                     else
                         rx_read_enable_pclk <= 1'b1;
                 end
-
+    
                 if (rx_read_enable_pclk && rx_vs_rise_pclk)
                     rx_stream_enable_pclk <= 1'b1;
             end
@@ -1015,7 +1075,7 @@ module top
     fifo_top_tx36x4096 u_fifo_top_tx36x4096
     (
         .Data           (tx_video_fifo_din),
-        .Reset          (!resetn_i),
+        .Reset          (sys_video_rst_n),
         .WrClk          (pixel_clk),
         .RdClk          (sys_clk),
         .WrEn           (tx_video_fifo_wr_en),
@@ -1032,7 +1092,7 @@ module top
     fifo_top_rx36x4096 u_fifo_top_rx36x4096
     (
         .Data           (rx_video_fifo_din),
-        .Reset          (!resetn_i),
+        .Reset          (sys_video_rst_n),
         .WrClk          (sys_clk),
         .RdClk          (pixel_clk),
         .WrEn           (rx_video_fifo_wr_en),
