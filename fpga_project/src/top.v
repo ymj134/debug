@@ -2,9 +2,10 @@
 
 /*********************************************************************************
 * Module       : top
-* Style tag    : top_full_timing_stream_uart_v3
+* Style tag    : top_full_timing_stream_uart_v4
 * Description  :
 *   720p60 full-timing video stream + high-priority UART user-data stream
+*   + UART-controlled source pattern mode
 *   + UART-controlled OSD black box overlay
 *
 * OSD commands:
@@ -12,10 +13,32 @@
 *   '0' : OSD OFF
 *   'T' : OSD TOGGLE
 *
+* Pattern commands (reuse uart_cmd_decoder_v2 A~F, but remap here):
+*   'A' : MODE 0 -> color bar
+*   'B' : MODE 1 -> net grid
+*   'C' : MODE 2 -> gray
+*   'D' : MODE 3 -> black-white square
+*   'E' : MODE 4 -> single red
+*   'F' : MODE 5 -> single green
+*
 * Notes:
-*   1) 保持你当前 streaming mode + 74.25MHz 配置
+*   1) 保持 streaming mode + pixel_clk = 74.25MHz
 *   2) HDMI 始终使用本地稳定的 tp_vs/tp_hs/tp_de
 *   3) 返回视频流只作为 RGB 内容来源
+*   4) pattern mode 在 pixel_clk 域的帧边界生效，避免半帧切换
+*   5) 本文件假设以下模块已独立存在：
+*      reset_gen
+*      sync_fifo_fwft_v1
+*      uart_rx_byte_v1
+*      uart_tx_byte_v1
+*      video_symbol_packer_v1
+*      video_symbol_unpacker_v1
+*      stream_mux_qos_v1
+*      stream_demux_v1
+*      uart_word_packer_v1
+*      uart_word_unpacker_v1
+*      uart_cmd_decoder_v2
+*      osd_box_overlay_v1
 *********************************************************************************/
 
 module top
@@ -128,6 +151,19 @@ module top
     wire [7:0]  tp_g;
     wire [7:0]  tp_b;
 
+    // testpattern 模式控制（pixel_clk 域）
+    reg  [2:0]  pattern_mode_meta    = 3'd0;
+    reg  [2:0]  pattern_mode_pending = 3'd0;
+    reg  [2:0]  pattern_mode_active  = 3'd0;
+
+    reg  [2:0]  tp_mode_active       = 3'b000;
+    reg  [7:0]  tp_single_r_active   = 8'd0;
+    reg  [7:0]  tp_single_g_active   = 8'd255;
+    reg  [7:0]  tp_single_b_active   = 8'd0;
+
+    wire        tp_frame_start;
+    assign tp_frame_start = (tp_h_cnt == 16'd0) && (tp_v_cnt == 16'd0);
+
     //==========================================================================
     // 4) TX: full timing symbol packer -> TX_VIDEO FIFO
     //==========================================================================
@@ -233,9 +269,11 @@ module top
     wire        uart_tx_busy;
 
     //==========================================================================
-    // 10) UART 命令解码 / OSD 控制
+    // 10) UART 命令解码 / OSD / Pattern 控制
     //==========================================================================
     wire        osd_enable_sys;
+    wire [2:0]  pattern_mode_sys;
+    wire        status_req_pulse_sys;
     wire [7:0]  osd_last_cmd;
     wire        osd_cmd_seen_pulse;
     wire        osd_unknown_cmd_sticky;
@@ -400,11 +438,11 @@ module top
     (
         .I_pxl_clk   (pixel_clk),
         .I_rst_n     (pixel_rst_n),
-        .I_mode      (3'b000),
+        .I_mode      (tp_mode_active),
         .I_sqr_width (16'd60),
-        .I_single_r  (8'd0),
-        .I_single_g  (8'd255),
-        .I_single_b  (8'd0),
+        .I_single_r  (tp_single_r_active),
+        .I_single_g  (tp_single_g_active),
+        .I_single_b  (tp_single_b_active),
         .I_h_total   (C_H_TOTAL),
         .I_h_sync    (C_H_SYNC),
         .I_h_bporch  (C_H_BPORCH),
@@ -629,7 +667,6 @@ module top
         .o_seq_err_sticky    (uart_rx_seq_err_sticky)
     );
 
-    // UART 回显输出
     uart_tx_byte_v1
     #(
         .CLKS_PER_BIT(UART_CLKS_PER_BIT)
@@ -650,7 +687,7 @@ module top
     //==========================================================================
     // 23) UART 命令解码：监听返回到本地的 UART 字节
     //==========================================================================
-    uart_cmd_decoder_v1 u_uart_cmd_decoder_v1
+    uart_cmd_decoder_v2 u_uart_cmd_decoder_v2
     (
         .i_clk               (sys_clk),
         .i_rst_n             (~sys_rst),
@@ -659,6 +696,8 @@ module top
         .i_byte_valid        (uart_tx_byte_valid_from_link),
 
         .o_osd_enable        (osd_enable_sys),
+        .o_pattern_mode      (pattern_mode_sys),
+        .o_status_req_pulse  (status_req_pulse_sys),
 
         .o_last_cmd          (osd_last_cmd),
         .o_cmd_seen_pulse    (osd_cmd_seen_pulse),
@@ -666,21 +705,100 @@ module top
     );
 
     //==========================================================================
-    // 24) OSD 使能跨时钟同步到 pixel_clk
+    // 24) OSD / Pattern 跨时钟同步到 pixel_clk
     //==========================================================================
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
-            osd_enable_meta <= 1'b0;
-            osd_enable_pclk <= 1'b0;
+            osd_enable_meta      <= 1'b0;
+            osd_enable_pclk      <= 1'b0;
+            pattern_mode_meta    <= 3'd0;
+            pattern_mode_pending <= 3'd0;
         end
         else begin
-            osd_enable_meta <= osd_enable_sys;
-            osd_enable_pclk <= osd_enable_meta;
+            osd_enable_meta      <= osd_enable_sys;
+            osd_enable_pclk      <= osd_enable_meta;
+            pattern_mode_meta    <= pattern_mode_sys;
+            pattern_mode_pending <= pattern_mode_meta;
         end
     end
 
     //==========================================================================
-    // 25) OSD 叠加：在屏幕中间覆盖黑块
+    // 25) Pattern mode 在帧边界生效，并映射到 testpattern 的 I_mode
+    //==========================================================================
+    always @(posedge pixel_clk or negedge pixel_rst_n) begin
+        if (!pixel_rst_n) begin
+            pattern_mode_active <= 3'd0;
+            tp_mode_active      <= 3'b000;
+            tp_single_r_active  <= 8'd0;
+            tp_single_g_active  <= 8'd255;
+            tp_single_b_active  <= 8'd0;
+        end
+        else begin
+            if (tp_frame_start) begin
+                pattern_mode_active <= pattern_mode_pending;
+
+                case (pattern_mode_pending)
+                    3'd0: begin
+                        // A -> color bar
+                        tp_mode_active     <= 3'b000;
+                        tp_single_r_active <= 8'd0;
+                        tp_single_g_active <= 8'd255;
+                        tp_single_b_active <= 8'd0;
+                    end
+
+                    3'd1: begin
+                        // B -> net grid
+                        tp_mode_active     <= 3'b001;
+                        tp_single_r_active <= 8'd0;
+                        tp_single_g_active <= 8'd0;
+                        tp_single_b_active <= 8'd0;
+                    end
+
+                    3'd2: begin
+                        // C -> gray
+                        tp_mode_active     <= 3'b010;
+                        tp_single_r_active <= 8'd0;
+                        tp_single_g_active <= 8'd0;
+                        tp_single_b_active <= 8'd0;
+                    end
+
+                    3'd3: begin
+                        // D -> black-white square
+                        tp_mode_active     <= 3'b011;
+                        tp_single_r_active <= 8'd0;
+                        tp_single_g_active <= 8'd0;
+                        tp_single_b_active <= 8'd0;
+                    end
+
+                    3'd4: begin
+                        // E -> single red
+                        tp_mode_active     <= 3'b111;
+                        tp_single_r_active <= 8'd255;
+                        tp_single_g_active <= 8'd0;
+                        tp_single_b_active <= 8'd0;
+                    end
+
+                    3'd5: begin
+                        // F -> single green
+                        tp_mode_active     <= 3'b111;
+                        tp_single_r_active <= 8'd0;
+                        tp_single_g_active <= 8'd255;
+                        tp_single_b_active <= 8'd0;
+                    end
+
+                    default: begin
+                        tp_mode_active     <= 3'b000;
+                        tp_single_r_active <= 8'd0;
+                        tp_single_g_active <= 8'd255;
+                        tp_single_b_active <= 8'd0;
+                    end
+                endcase
+            end
+        end
+    end
+
+    //==========================================================================
+    // 26) OSD 叠加：在屏幕中间覆盖黑块
     //==========================================================================
     osd_box_overlay_v1
     #(
@@ -709,7 +827,7 @@ module top
     );
 
     //==========================================================================
-    // 26) pixel 域：预填充 + VS 锁流
+    // 27) pixel 域：预填充 + VS 锁流
     //==========================================================================
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
@@ -750,7 +868,7 @@ module top
     end
 
     //==========================================================================
-    // 27) FIFO 实例
+    // 28) FIFO 实例
     //==========================================================================
 
     // TX_VIDEO async FIFO
@@ -831,7 +949,7 @@ module top
     );
 
     //==========================================================================
-    // 28) HDMI 输出
+    // 29) HDMI 输出
     //==========================================================================
     assign O_adv7513_clk  = pixel_clk;
     assign O_adv7513_vs   = hdmi_vs;
