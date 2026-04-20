@@ -2,7 +2,7 @@
 
 /*********************************************************************************
 * Module       : top
-* Style tag    : top_full_timing_stream_demo_v2
+* Style tag    : top_full_timing_stream_demo_v7_auto_cal_light
 * Description  :
 *   720p60 full-timing video stream + UART text-command demo control plane
 *   + source pattern mode switch
@@ -30,6 +30,7 @@
 *   2) 返回视频流只作为 RGB 内容来源
 *   3) pattern mode 在帧边界生效，避免半帧切换
 *   4) RX 命令字节在 parser 前做单拍整形，避免重复采样
+*   5) HDMI 继续使用本地稳定 timing，并在 link-up 后自动校准水平 delay
 *********************************************************************************/
 
 module top
@@ -76,6 +77,16 @@ module top
     localparam [15:0] C_V_RES    = 16'd720;
 
     localparam [15:0] RX_PREFILL_CYCLES = 16'd1024;
+
+    localparam [15:0] H_ACT_START = C_H_SYNC + C_H_BPORCH; // 260
+    localparam [15:0] V_ACT_START = C_V_SYNC + C_V_BPORCH; // 25
+
+    // 本地 HDMI timing 自动水平延迟校准
+    // 默认值用于 link-up 后校准完成前的显示；校准成功后会被 hdmi_timing_delay_reg 覆盖
+    localparam [10:0] HDMI_DELAY_DEFAULT = 11'd160;
+
+    // link-up 后，先等待若干个 RX 帧，再测一次 rx_sym_de 首次上升沿对应的 tp_h_cnt
+    localparam [1:0]  CAL_WAIT_FRAMES    = 2'd2;
 
     // UART 参数（sys_clk≈78.125MHz, baud=115200）
     localparam integer UART_CLKS_PER_BIT = 678;
@@ -159,12 +170,25 @@ module top
     reg         tp_vs_d   = 1'b0;
     reg  [7:0]  blink_cnt = 8'd0;
 
+    // 自动校准得到的本地 HDMI timing 水平延迟（单位：pixel_clk 周期）
+    reg  [10:0] hdmi_timing_delay_reg = HDMI_DELAY_DEFAULT;
+    reg  [1:0]  calib_wait_frame_cnt  = 2'd0;
+    reg         calib_done_pclk       = 1'b0;
+    reg  [15:0] delay_meas_tmp        = 16'd0;
+
+    // 由本地 tp_h_cnt/tp_v_cnt 通过算术方式推导出的“延迟后的稳定 HDMI timing”
+    wire [15:0] hdmi_h_cnt_d;
+    wire [15:0] hdmi_v_cnt_d;
+    wire        hdmi_vs_dly;
+    wire        hdmi_hs_dly;
+    wire        hdmi_de_dly;
+
     //==========================================================================
     // 4) TX: full timing symbol packer -> TX_VIDEO FIFO
     //==========================================================================
     wire [31:0] tx_video_word_data;
     wire        tx_video_word_valid;
-    wire        tx_video_overflow_sticky;
+    wire        tx_video_overflow_sticky/* synthesis syn_keep=1 */;
 
     wire [35:0] tx_video_fifo_din;
     wire [35:0] tx_video_fifo_dout;
@@ -323,18 +347,43 @@ module top
     reg        rx_stream_enable_pclk = 1'b0;
 
     reg        rx_sym_vs_d = 1'b0;
+    reg        rx_sym_de_d = 1'b0;
 
     wire channel_down_pulse_pclk;
     wire rx_vs_rise_pclk;
+    wire rx_de_rise_pclk;
 
     assign channel_down_pulse_pclk = channel_up_pclk_d & (~channel_up_pclk);
     assign rx_vs_rise_pclk         = (~rx_sym_vs_d) & rx_sym_vs & rx_sym_valid;
+    assign rx_de_rise_pclk         = (~rx_sym_de_d) & rx_sym_de & rx_sym_valid;
 
     wire rx_video_ready_pclk;
     assign rx_video_ready_pclk = rx_read_enable_pclk;
 
     //==========================================================================
-    // 12) HDMI 输出 / OSD / link down red flash
+    // 12) delayed local stable timing (arithmetic form, no large tap pipe)
+    //==========================================================================
+    assign hdmi_h_cnt_d =
+        (tp_h_cnt >= hdmi_timing_delay_reg) ? (tp_h_cnt - hdmi_timing_delay_reg) :
+                                              (tp_h_cnt + C_H_TOTAL - hdmi_timing_delay_reg);
+
+    assign hdmi_v_cnt_d =
+        (tp_h_cnt >= hdmi_timing_delay_reg) ? tp_v_cnt :
+        ((tp_v_cnt == 16'd0) ? (C_V_TOTAL - 16'd1) : (tp_v_cnt - 16'd1));
+
+    assign hdmi_vs_dly =
+        (hdmi_v_cnt_d < C_V_SYNC);
+
+    assign hdmi_hs_dly =
+        (hdmi_h_cnt_d < C_H_SYNC);
+
+    assign hdmi_de_dly =
+        (hdmi_h_cnt_d >= H_ACT_START) && (hdmi_h_cnt_d < (H_ACT_START + C_H_RES)) &&
+        (hdmi_v_cnt_d >= V_ACT_START) && (hdmi_v_cnt_d < (V_ACT_START + C_V_RES));
+
+
+    //==========================================================================
+    // 13) HDMI 输出 / OSD / link down red flash
     //==========================================================================
     wire        hdmi_vs;
     wire        hdmi_hs;
@@ -346,35 +395,35 @@ module top
     wire [23:0] osd_rgb;
     wire        osd_in_box;
 
-    assign hdmi_vs = tp_vs;
-    assign hdmi_hs = tp_hs;
-    assign hdmi_de = tp_de;
+    assign hdmi_vs = hdmi_vs_dly;
+    assign hdmi_hs = hdmi_hs_dly;
+    assign hdmi_de = hdmi_de_dly;
 
     assign link_up_rgb =
-        (tp_de && rx_stream_enable_pclk && rx_sym_valid && rx_sym_de) ? rx_sym_rgb
-                                                                      : 24'h000000;
+        (hdmi_de_dly && rx_stream_enable_pclk && rx_sym_valid) ? rx_sym_rgb
+                                                               : 24'h000000;
 
     assign red_flash_rgb = blink_cnt[5] ? 24'hFF0000 : 24'h200000;
 
-    assign base_rgb = channel_up_pclk ? link_up_rgb : (tp_de ? red_flash_rgb : 24'h000000);
+    assign base_rgb = channel_up_pclk ? link_up_rgb : (hdmi_de_dly ? red_flash_rgb : 24'h000000);
 
     //==========================================================================
-    // 13) 内部调试信号 / LED
+    // 14) 内部调试信号 / LED
     //==========================================================================
-    wire [3:0] test_sig /* synthesis syn_keep=1 */;
+    // wire [3:0] test_sig /* synthesis syn_keep=1 */;
 
-    assign test_sig[0] = tx_video_overflow_sticky | rx_stream_underflow_sticky;
-    assign test_sig[1] = tx_ctrl_overflow_sticky_from_packer |
-                         uart_rx_crc_err_sticky |
-                         uart_rx_seq_err_sticky |
-                         uart_rx_type_err_sticky |
-                         uart_rx_channel_err_sticky;
-    assign test_sig[2] = cmd_line_overflow_sticky |
-                         resp_fmt_overflow_sticky;
-    assign test_sig[3] = fsm_unknown_cmd_sticky |
-                         fsm_bad_arg_sticky |
-                         fsm_linkdown_cmd_sticky |
-                         fsm_cmd_while_busy_sticky;
+    // assign test_sig[0] = tx_video_overflow_sticky | rx_stream_underflow_sticky;
+    // assign test_sig[1] = tx_ctrl_overflow_sticky_from_packer |
+    //                      uart_rx_crc_err_sticky |
+    //                      uart_rx_seq_err_sticky |
+    //                      uart_rx_type_err_sticky |
+    //                      uart_rx_channel_err_sticky;
+    // assign test_sig[2] = cmd_line_overflow_sticky |
+    //                      resp_fmt_overflow_sticky;
+    // assign test_sig[3] = fsm_unknown_cmd_sticky |
+    //                      fsm_bad_arg_sticky |
+    //                      fsm_linkdown_cmd_sticky |
+    //                      fsm_cmd_while_busy_sticky;
 
     assign sfp1_tx_disable_o = 1'b0;
     assign sfp2_tx_disable_o = 1'b0;
@@ -385,7 +434,7 @@ module top
     assign led_o[3] = osd_enable_pclk;
 
     //==========================================================================
-    // 14) 时钟 / 复位
+    // 15) 时钟 / 复位
     //==========================================================================
     assign sys_clk         = gt_pcs_tx_clk[0];
     assign gt_reset        = 1'b0;
@@ -402,12 +451,12 @@ module top
         .clkin      ( osc_clk_i     )
     );
 
-    reset_gen u_cfg_reset_gen
-    (
-        .i_clk1     ( cfg_clk       ),
-        .i_lock     ( cfg_pll_lock  ),
-        .o_rst1     ( cfg_rst       )
-    );
+    // reset_gen u_cfg_reset_gen
+    // (
+    //     .i_clk1     ( cfg_clk       ),
+    //     .i_lock     ( cfg_pll_lock  ),
+    //     .o_rst1     ( cfg_rst       )
+    // );
 
     reset_gen u_sys_reset_gen
     (
@@ -433,7 +482,7 @@ module top
     );
 
     //==========================================================================
-    // 15) ADV7513 / 本地 720p 测试图
+    // 16) ADV7513 / 本地 720p 测试图
     //==========================================================================
     wire        TX_EN_7513;
     wire [2:0]  WADDR_7513;
@@ -502,7 +551,7 @@ module top
     );
 
     //==========================================================================
-    // 16) SerDes_Top（streaming mode）
+    // 17) SerDes_Top（streaming mode）
     //==========================================================================
     SerDes_Top u_SerDes_Top
     (
@@ -534,7 +583,7 @@ module top
     );
 
     //==========================================================================
-    // 17) 视频发送端：打包完整 timing -> TX_VIDEO FIFO
+    // 18) 视频发送端：打包完整 timing -> TX_VIDEO FIFO
     //==========================================================================
     video_symbol_packer_v1 u_video_symbol_packer_v1
     (
@@ -555,7 +604,7 @@ module top
     );
 
     //==========================================================================
-    // 18) UART 发送到链路：UART RX -> 控制字 -> TX_CTRL FIFO
+    // 19) UART 发送到链路：UART RX -> 控制字 -> TX_CTRL FIFO
     //==========================================================================
     uart_rx_byte_v1
     #(
@@ -593,7 +642,7 @@ module top
     );
 
     //==========================================================================
-    // 19) TX 复用：ctrl 高优先级 + 视频高水位保护
+    // 20) TX 复用：ctrl 高优先级 + 视频高水位保护
     //==========================================================================
     stream_mux_qos_v1
     #(
@@ -628,7 +677,7 @@ module top
     assign user_tx_valid = mux_tx_valid;
 
     //==========================================================================
-    // 20) RX 解复用：视频 -> RX_VIDEO FIFO，控制 -> RX_CTRL FIFO
+    // 21) RX 解复用：视频 -> RX_VIDEO FIFO，控制 -> RX_CTRL FIFO
     //==========================================================================
     stream_demux_v1 u_stream_demux_v1
     (
@@ -654,7 +703,7 @@ module top
     );
 
     //==========================================================================
-    // 21) RX 视频恢复：RX_VIDEO FIFO -> 本地 timing 下显示 RGB
+    // 22) RX 视频恢复：RX_VIDEO FIFO -> 本地 timing 下显示 RGB
     //==========================================================================
     video_symbol_unpacker_v1 u_video_symbol_unpacker_v1
     (
@@ -677,7 +726,7 @@ module top
     );
 
     //==========================================================================
-    // 22) RX 控制恢复：RX_CTRL FIFO -> UART byte stream from link
+    // 23) RX 控制恢复：RX_CTRL FIFO -> UART byte stream from link
     //==========================================================================
     uart_word_unpacker_v1
     #(
@@ -706,7 +755,7 @@ module top
     );
 
     //==========================================================================
-    // 23) RX 命令字节单拍整形
+    // 24) RX 命令字节单拍整形
     //==========================================================================
     always @(posedge sys_clk or posedge sys_rst) begin
         if (sys_rst) begin
@@ -726,7 +775,7 @@ module top
     end
 
     //==========================================================================
-    // 24) 文本命令解析：UART byte stream -> line parser -> control fsm
+    // 25) 文本命令解析：UART byte stream -> line parser -> control fsm
     //==========================================================================
     uart_line_parser_v1
     #(
@@ -784,7 +833,7 @@ module top
     );
 
     //==========================================================================
-    // 25) 响应格式化：structured response -> UART TX text response
+    // 26) 响应格式化：structured response -> UART TX text response
     //==========================================================================
     uart_resp_formatter_v1
     #(
@@ -831,7 +880,7 @@ module top
     );
 
     //==========================================================================
-    // 26) OSD / Pattern / Menu 同步到 pixel_clk
+    // 27) OSD / Pattern / Menu 同步到 pixel_clk
     //==========================================================================
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
@@ -855,7 +904,7 @@ module top
     end
 
     //==========================================================================
-    // 27) Pattern mode 在帧边界生效，并映射到 testpattern 的 I_mode
+    // 28) Pattern mode 在帧边界生效，并映射到 testpattern 的 I_mode
     //==========================================================================
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
@@ -930,7 +979,7 @@ module top
     end
 
     //==========================================================================
-    // 28) 菜单 OSD 叠加
+    // 29) 菜单 OSD 叠加
     //==========================================================================
     osd_menu_overlay_v1
     #(
@@ -949,9 +998,9 @@ module top
         .i_osd_enable   (osd_enable_pclk),
         .i_menu_index   (menu_index_pclk),
 
-        .i_h_cnt        (tp_h_cnt),
-        .i_v_cnt        (tp_v_cnt),
-        .i_de           (tp_de),
+        .i_h_cnt        (hdmi_h_cnt_d),
+        .i_v_cnt        (hdmi_v_cnt_d),
+        .i_de           (hdmi_de_dly),
 
         .i_base_rgb     (base_rgb),
 
@@ -960,7 +1009,7 @@ module top
     );
 
     //==========================================================================
-    // 29) pixel 域：blink / prefill / VS 锁流
+    // 30) pixel 域：blink / prefill / VS 锁流 / auto calibration
     //==========================================================================
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
@@ -976,6 +1025,12 @@ module top
             rx_stream_enable_pclk <= 1'b0;
 
             rx_sym_vs_d           <= 1'b0;
+            rx_sym_de_d           <= 1'b0;
+
+            calib_wait_frame_cnt  <= 2'd0;
+            calib_done_pclk       <= 1'b0;
+            hdmi_timing_delay_reg <= HDMI_DELAY_DEFAULT;
+            delay_meas_tmp        <= 16'd0;
         end
         else begin
             tp_vs_d <= tp_vs;
@@ -987,11 +1042,16 @@ module top
             channel_up_pclk_d    <= channel_up_pclk;
 
             rx_sym_vs_d <= rx_sym_vs;
+            rx_sym_de_d <= rx_sym_de;
 
             if (!channel_up_pclk) begin
                 rx_prefill_cnt        <= 16'd0;
                 rx_read_enable_pclk   <= 1'b0;
                 rx_stream_enable_pclk <= 1'b0;
+
+                calib_wait_frame_cnt  <= 2'd0;
+                calib_done_pclk       <= 1'b0;
+                hdmi_timing_delay_reg <= HDMI_DELAY_DEFAULT;
             end
             else begin
                 if (!rx_read_enable_pclk) begin
@@ -1003,12 +1063,38 @@ module top
 
                 if (rx_read_enable_pclk && rx_vs_rise_pclk)
                     rx_stream_enable_pclk <= 1'b1;
+
+                // auto-calibration:
+                // link-up 后，等到返回流已经能读，再等待若干个 RX 帧；
+                // 然后在某一行 rx_de 的上升沿测一次 tp_h_cnt 与 active 起点的差值
+                if (rx_stream_enable_pclk && !calib_done_pclk) begin
+                    if (rx_vs_rise_pclk && (calib_wait_frame_cnt < CAL_WAIT_FRAMES)) begin
+                        calib_wait_frame_cnt <= calib_wait_frame_cnt + 2'd1;
+                    end
+                    else if ((calib_wait_frame_cnt == CAL_WAIT_FRAMES) && rx_de_rise_pclk) begin
+                        if (tp_h_cnt >= H_ACT_START)
+                            delay_meas_tmp <= tp_h_cnt - H_ACT_START;
+                        else
+                            delay_meas_tmp <= tp_h_cnt + C_H_TOTAL - H_ACT_START;
+
+                        if (((tp_h_cnt >= H_ACT_START) ? (tp_h_cnt - H_ACT_START)
+                                                       : (tp_h_cnt + C_H_TOTAL - H_ACT_START)) < C_H_TOTAL) begin
+                            hdmi_timing_delay_reg <= ((tp_h_cnt >= H_ACT_START) ? (tp_h_cnt - H_ACT_START)
+                                                                                : (tp_h_cnt + C_H_TOTAL - H_ACT_START));
+                        end
+                        else begin
+                            hdmi_timing_delay_reg <= HDMI_DELAY_DEFAULT;
+                        end
+
+                        calib_done_pclk <= 1'b1;
+                    end
+                end
             end
         end
     end
 
     //==========================================================================
-    // 30) FIFO 实例
+    // 31) FIFO 实例
     //==========================================================================
 
     // TX_VIDEO async FIFO
@@ -1089,7 +1175,7 @@ module top
     );
 
     //==========================================================================
-    // 31) HDMI 输出
+    // 32) HDMI 输出
     //==========================================================================
     assign O_adv7513_clk  = pixel_clk;
     assign O_adv7513_vs   = hdmi_vs;
